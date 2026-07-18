@@ -1,6 +1,6 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useReducedMotion } from 'framer-motion';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 const cloudVertex = /* glsl */ `
@@ -276,6 +276,15 @@ function SpectralObjects() {
 export default function SignalBackground() {
   const shouldReduceMotion = useReducedMotion();
   const backgroundRef = useRef<HTMLDivElement>(null);
+  const [canUseWebGL, setCanUseWebGL] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 821px) and (prefers-reduced-motion: no-preference)');
+    const update = () => setCanUseWebGL(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -287,13 +296,13 @@ export default function SignalBackground() {
   }, []);
 
   return (
-    <div ref={backgroundRef} className="signal-background" aria-hidden="true">
+    <div ref={backgroundRef} className={`signal-background${canUseWebGL ? '' : ' is-static'}`} aria-hidden="true">
       <div className="signal-background__aurora signal-background__aurora--cyan" />
       <div className="signal-background__aurora signal-background__aurora--violet" />
       <div className="signal-background__aurora signal-background__aurora--magenta" />
       <div className="signal-background__aurora signal-background__aurora--amber" />
       <div className="signal-background__grid" />
-      {!shouldReduceMotion && (
+      {canUseWebGL && !shouldReduceMotion && (
         <Canvas
           dpr={[0.65, 1.2]}
           camera={{ position: [0, 0, 7.5], fov: 46, near: 0.1, far: 60 }}

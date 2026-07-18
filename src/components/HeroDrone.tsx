@@ -1,7 +1,7 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Trail } from '@react-three/drei';
 import { useReducedMotion } from 'framer-motion';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 type RotorProps = {
@@ -152,7 +152,17 @@ function DroneFlight() {
 
 export default function HeroDrone() {
   const shouldReduceMotion = useReducedMotion();
-  if (shouldReduceMotion) return null;
+  const [isCompact, setIsCompact] = useState(true);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 820px)');
+    const update = () => setIsCompact(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  if (shouldReduceMotion || isCompact) return null;
 
   return (
     <div className="hero-drone" aria-hidden="true">

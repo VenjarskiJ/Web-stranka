@@ -12,6 +12,8 @@ const translations = {
     mission: 'MISSION / CALIBRATE THE ARRAY',
     title: 'Build a virtual camera rig.',
     description: 'Spread three viewpoints across the scene. Better angular coverage reveals more of the latent 3D reconstruction.',
+    guideLabel: 'WHAT TO DO',
+    guide: 'Move cameras A, B, and C with the sliders. Spread them around the subject to create stronger parallax and reach at least 92% coverage.',
     coverage: 'FIELD COVERAGE',
     camera: 'Camera',
     randomize: 'New challenge',
@@ -24,6 +26,8 @@ const translations = {
     mission: 'MISIA / KALIBRÁCIA POĽA',
     title: 'Zostavte virtuálnu kamerovú sústavu.',
     description: 'Rozmiestnite tri pohľady okolo scény. Lepšie uhlové pokrytie odhalí väčšiu časť latentnej 3D rekonštrukcie.',
+    guideLabel: 'ČO TREBA UROBIŤ',
+    guide: 'Posúvajte kamery A, B a C pomocou ovládačov. Rozmiestnite ich okolo objektu tak, aby vytvorili silnejšiu paralaxu a aspoň 92 % pokrytie.',
     coverage: 'POKRYTIE POĽA',
     camera: 'Kamera',
     randomize: 'Nová výzva',
@@ -172,6 +176,8 @@ function CalibrationScene({ angles, quality, theme, reducedMotion }: { angles: n
 export default function ResearchPlayground({ lang, theme, onContact }: { lang: Language; theme: Theme; onContact: () => void }) {
   const t = translations[lang];
   const reducedMotion = Boolean(useReducedMotion());
+  const visualRef = useRef<HTMLDivElement>(null);
+  const [isVisualActive, setIsVisualActive] = useState(false);
   const [angles, setAngles] = useState([-18, 7, 24]);
   const sortedAngles = useMemo(() => [...angles].sort((a, b) => a - b), [angles]);
   const score = useMemo(() => {
@@ -192,13 +198,27 @@ export default function ResearchPlayground({ lang, theme, onContact }: { lang: L
     setAngles([-28 + seed % 17, -8 + seed % 13, 18 + seed % 19]);
   };
 
+  useEffect(() => {
+    const node = visualRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      setIsVisualActive(true);
+      observer.disconnect();
+    }, { rootMargin: '240px 0px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className={`research-playground research-playground--${theme} cyber-panel`}>
-      <div className="research-playground__visual">
+      <div ref={visualRef} className="research-playground__visual">
         <div className="research-playground__hud"><span>NEURAL FIELD / LIVE</span><span>{String(score).padStart(3, '0')}% RESOLVED</span></div>
-        <Canvas dpr={[0.72, 1.35]} camera={{ position: [4.6, 2.15, 7.6], fov: 42 }} gl={{ alpha: true, antialias: false, powerPreference: 'high-performance' }}>
-          <CalibrationScene angles={angles} quality={quality} theme={theme} reducedMotion={reducedMotion} />
-        </Canvas>
+        {isVisualActive ? (
+          <Canvas dpr={[0.65, 1.15]} camera={{ position: [4.6, 2.15, 7.6], fov: 42 }} gl={{ alpha: true, antialias: false, powerPreference: 'high-performance' }}>
+            <CalibrationScene angles={angles} quality={quality} theme={theme} reducedMotion={reducedMotion} />
+          </Canvas>
+        ) : <div className="research-playground__preview" aria-hidden="true" />}
         <div className="research-playground__reticle" aria-hidden="true"><i /><i /></div>
       </div>
 
@@ -206,6 +226,10 @@ export default function ResearchPlayground({ lang, theme, onContact }: { lang: L
         <p className="research-playground__mission"><Sparkles size={15} />{t.mission}</p>
         <h3>{t.title}</h3>
         <p className="research-playground__description">{t.description}</p>
+        <div className="research-playground__guide">
+          <strong>{t.guideLabel}</strong>
+          <p>{t.guide}</p>
+        </div>
 
         <div className="coverage-readout">
           <div><span>{t.coverage}</span><strong>{score}%</strong></div>

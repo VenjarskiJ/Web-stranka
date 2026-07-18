@@ -3,15 +3,33 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 const glyphs = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/<>[]{}';
 
+function useCompactViewport() {
+  const [isCompact, setIsCompact] = useState(() => (
+    typeof window === 'undefined' || window.matchMedia('(max-width: 820px)').matches
+  ));
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 820px)');
+    const update = () => setIsCompact(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  return isCompact;
+}
+
 export function DecodeText({ text, className = '' }: { text: string; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true, margin: '-8%' });
   const shouldReduceMotion = useReducedMotion();
-  const [rendered, setRendered] = useState(shouldReduceMotion ? text : text.replace(/[^\s]/g, '·'));
+  const isCompact = useCompactViewport();
+  const skipDecode = shouldReduceMotion || isCompact;
+  const [rendered, setRendered] = useState(skipDecode ? text : text.replace(/[^\s]/g, '·'));
 
   useEffect(() => {
-    if (!isInView || shouldReduceMotion) {
-      if (shouldReduceMotion) setRendered(text);
+    if (!isInView || skipDecode) {
+      if (skipDecode) setRendered(text);
       return;
     }
 
@@ -37,7 +55,7 @@ export function DecodeText({ text, className = '' }: { text: string; className?:
     }, 28);
 
     return () => window.clearInterval(timer);
-  }, [isInView, shouldReduceMotion, text]);
+  }, [isInView, skipDecode, text]);
 
   return (
     <span ref={ref} className={className} aria-label={text}>
@@ -56,12 +74,14 @@ export function Reveal({
   delay?: number;
 }) {
   const shouldReduceMotion = useReducedMotion();
+  const isCompact = useCompactViewport();
+  const skipReveal = shouldReduceMotion || isCompact;
 
   return (
     <motion.div
       className={className}
-      initial={shouldReduceMotion ? false : { opacity: 0, y: 34, filter: 'blur(12px)' }}
-      whileInView={shouldReduceMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
+      initial={skipReveal ? false : { opacity: 0, y: 34, filter: 'blur(12px)' }}
+      whileInView={skipReveal ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
       viewport={{ once: true, amount: 0.16 }}
       transition={{ duration: 0.72, delay, ease: [0.22, 1, 0.36, 1] }}
     >
