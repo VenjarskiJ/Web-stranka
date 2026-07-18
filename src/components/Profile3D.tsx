@@ -175,9 +175,10 @@ function AvatarScene({ theme, targetYaw, targetPitch, velocity, interacting, red
 
 type Profile3DProps = {
   theme: 'dark' | 'light';
+  lang: 'en' | 'sk';
 };
 
-export default function Profile3D({ theme }: Profile3DProps) {
+export default function Profile3D({ theme, lang }: Profile3DProps) {
   const root = useRef<HTMLDivElement>(null);
   const targetYaw = useRef(0);
   const targetPitch = useRef(0);
@@ -263,7 +264,9 @@ export default function Profile3D({ theme }: Profile3DProps) {
       className={`profile-hologram profile-hologram--${theme}${isInteracting ? ' is-interacting' : ''}`}
       role="group"
       tabIndex={0}
-      aria-label="Interactive three-dimensional point-cloud avatar of Jaroslav Venjarski. Move or drag to rotate; use arrow keys for precise rotation."
+      aria-label={lang === 'en'
+        ? 'Interactive three-dimensional point-cloud avatar of Jaroslav Venjarski. Move or drag to rotate; use arrow keys for precise rotation.'
+        : 'Interaktívny trojrozmerný point-cloud avatar Jaroslava Venjarského. Pohybom alebo ťahaním ho otočíte; presne ho ovládate šípkami.'}
       onPointerMove={handlePointerMove}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
@@ -304,9 +307,9 @@ export default function Profile3D({ theme }: Profile3DProps) {
       </div>
 
       <div className="profile-hologram__rotate-hint" aria-hidden="true">
-        <span>ROTATE</span>
+        <span>{lang === 'en' ? 'DRAG TO ROTATE' : 'ŤAHOM OTOČIŤ'}</span>
         <i><b style={{ left: `${50 + (angle / 83) * 44}%` }} /></i>
-        <span>MOVE / DRAG</span>
+        <span>← {lang === 'en' ? 'MOVE' : 'POHYB'} →</span>
       </div>
     </div>
   );

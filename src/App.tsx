@@ -50,7 +50,7 @@ type Project = {
 const copy = {
   en: {
     nav: { about: 'About', skills: 'Expertise', research: 'Research', lab: 'Lab', publications: 'Publications', contact: 'Contact' },
-    status: 'Open to research collaboration',
+    status: 'Open to research & project collaboration',
     role: 'Researcher · Educator · Research Engineer',
     heroLead: 'Researching what',
     heroAccent: 'machines can see.',
@@ -115,7 +115,7 @@ const copy = {
   },
   sk: {
     nav: { about: 'O mne', skills: 'Expertíza', research: 'Výskum', lab: 'Lab', publications: 'Publikácie', contact: 'Kontakt' },
-    status: 'Otvorený výskumnej spolupráci',
+    status: 'Otvorený výskumnej a projektovej spolupráci',
     role: 'Výskumník · Pedagóg · Výskumný vývojár',
     heroLead: 'Skúmam, čo dokážu',
     heroAccent: 'vidieť stroje.',
@@ -335,7 +335,7 @@ export default function App() {
           <motion.div className="hero-visual" initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1, delay: 0.18 }}>
             <div className="hero-visual__label"><span>{t.visualLabel}</span><i /></div>
             <Suspense fallback={<div className="profile3d-skeleton" aria-label="Loading interactive avatar" />}>
-              <Profile3D theme={theme} />
+              <Profile3D theme={theme} lang={lang} />
             </Suspense>
           </motion.div>
 
