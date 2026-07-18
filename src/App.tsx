@@ -70,7 +70,7 @@ const copy = {
     aboutTitle: 'Between pixels and spatial intelligence',
     aboutDescription: 'A researcher, educator, and developer working where geometry, vision, and signals converge.',
     aboutP1:
-      'I earned my M.S. in Telecommunications at the Slovak University of Technology in Bratislava in 2021 and continued there with doctoral research in 3D computer vision.',
+      'I earned my M.S. in Telecommunications at the Slovak University of Technology in Bratislava in 2021 and continued there with doctoral research in 3D computer vision, getting my Ph.D.',
     aboutP2:
       'At the Institute of Multimedia Information and Communication Technologies, I combine fundamental research, robust software pipelines, and university teaching.',
     aboutP3:
@@ -125,7 +125,7 @@ const copy = {
     aboutTitle: 'Medzi pixelmi a priestorovou inteligenciou',
     aboutDescription: 'Výskumník, pedagóg a vývojár na prieniku geometrie, počítačového videnia a signálov.',
     aboutP1:
-      'Inžiniersky titul v odbore telekomunikácie som získal na Slovenskej technickej univerzite v Bratislave v roku 2021 a následne som pokračoval doktorandským výskumom v oblasti 3D počítačového videnia.',
+      'Inžiniersky titul v odbore telekomunikácie som získal na Slovenskej technickej univerzite v Bratislave v roku 2021 a následne som pokračoval doktorandským výskumom v oblasti 3D počítačového videnia, vdaka ktorému som získal titul PhD.',
     aboutP2:
       'Na Ústave multimediálnych informačných a komunikačných technológií prepájam základný výskum, robustné softvérové riešenia a univerzitné vzdelávanie.',
     aboutP3:
