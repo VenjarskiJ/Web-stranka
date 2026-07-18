@@ -10,11 +10,9 @@ import {
   Code2,
   Cpu,
   ExternalLink,
-  Github,
   Globe2,
   GraduationCap,
   Layers3,
-  Linkedin,
   Mail,
   Menu,
   Moon,
@@ -25,15 +23,17 @@ import {
 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import ContactModal from './components/ContactModal';
-import HeroDrone from './components/HeroDrone';
 import { DecodeText, Reveal, SectionHeading } from './components/MotionPrimitives';
-import Profile3D from './components/Profile3D';
-import SignalBackground from './components/SignalBackground';
 
+const SignalBackground = lazy(() => import('./components/SignalBackground'));
+const HeroDrone = lazy(() => import('./components/HeroDrone'));
+const Profile3D = lazy(() => import('./components/Profile3D'));
 const InteractiveCharts = lazy(() => import('./components/InteractiveCharts'));
+const ResearchPlayground = lazy(() => import('./components/ResearchPlayground'));
 
 type Language = 'en' | 'sk';
 type Theme = 'dark' | 'light';
+type ContactIntent = { subject: string; message: string };
 
 type Project = {
   index: string;
@@ -49,7 +49,7 @@ type Project = {
 
 const copy = {
   en: {
-    nav: { about: 'About', skills: 'Expertise', research: 'Research', publications: 'Publications', contact: 'Contact' },
+    nav: { about: 'About', skills: 'Expertise', research: 'Research', lab: 'Lab', publications: 'Publications', contact: 'Contact' },
     status: 'Open to research collaboration',
     role: 'Researcher · Educator · Research Engineer',
     heroLead: 'Researching what',
@@ -90,6 +90,11 @@ const copy = {
     researchTitle: 'Research translated into working methods',
     researchDescription: 'Focused projects that turn difficult spatial-vision problems into measurable, efficient pipelines.',
     inspect: 'Inspect system',
+    labEyebrow: 'Playable research',
+    labTitle: 'Don’t just read about spatial vision. Operate it.',
+    labDescription: 'A small interactive experiment that turns camera geometry and reconstruction quality into something you can feel directly.',
+    labContactSubject: '3D research or prototype collaboration',
+    labContactMessage: 'I explored the virtual camera lab and would like to discuss how a spatial-vision approach could help with our project.\n\nProject or challenge:\n',
     publicationsEyebrow: 'Research output',
     publicationsTitle: 'Selected publications',
     publicationsDescription: 'Peer-reviewed work spanning feature matching, virtual views, segmentation, and depth-aware imaging.',
@@ -99,12 +104,17 @@ const copy = {
     contactTitle: 'Let’s build the next viewpoint.',
     contactDescription:
       'Research partnership, computer vision consultation, academic collaboration, or an ambitious 3D product — tell me what you are trying to see.',
+    collaborationModes: [
+      { code: 'R&D', title: 'Research partnership', text: 'Joint experiments, papers, grants, and validation of new computer-vision methods.', subject: 'Research partnership', message: 'I would like to discuss a potential research collaboration.\n\nResearch question or opportunity:\n' },
+      { code: 'POC', title: 'Prototype & feasibility', text: 'From a difficult 3D or imaging idea to a measurable proof of concept.', subject: '3D / computer vision prototype', message: 'I would like to discuss a technical prototype or feasibility study.\n\nProblem and desired outcome:\n' },
+      { code: 'EDU', title: 'Teaching & knowledge transfer', text: 'Workshops, lectures, supervision, and clear technical communication.', subject: 'Teaching, workshop, or supervision', message: 'I would like to discuss a teaching, workshop, or supervision opportunity.\n\nContext and audience:\n' },
+    ],
     sendMessage: 'Send a message',
     footer: 'Researching the space between captured pixels and reconstructed reality.',
     close: 'Close',
   },
   sk: {
-    nav: { about: 'O mne', skills: 'Expertíza', research: 'Výskum', publications: 'Publikácie', contact: 'Kontakt' },
+    nav: { about: 'O mne', skills: 'Expertíza', research: 'Výskum', lab: 'Lab', publications: 'Publikácie', contact: 'Kontakt' },
     status: 'Otvorený výskumnej spolupráci',
     role: 'Výskumník · Pedagóg · Výskumný vývojár',
     heroLead: 'Skúmam, čo dokážu',
@@ -145,6 +155,11 @@ const copy = {
     researchTitle: 'Výskum pretavený do funkčných metód',
     researchDescription: 'Projekty, ktoré premieňajú náročné úlohy priestorového videnia na merateľné a efektívne riešenia.',
     inspect: 'Preskúmať systém',
+    labEyebrow: 'Hrateľný výskum',
+    labTitle: 'O priestorovom videní iba nečítajte. Ovládajte ho.',
+    labDescription: 'Malý interaktívny experiment, ktorý premieňa geometriu kamier a kvalitu rekonštrukcie na priamy zážitok.',
+    labContactSubject: 'Spolupráca na 3D výskume alebo prototype',
+    labContactMessage: 'Vyskúšal/a som virtuálne kamerové laboratórium a rád/rada by som prediskutoval/a využitie priestorového videnia v našom projekte.\n\nProjekt alebo výzva:\n',
     publicationsEyebrow: 'Výskumné výstupy',
     publicationsTitle: 'Vybrané publikácie',
     publicationsDescription: 'Recenzované práce z oblasti párovania príznakov, virtuálnych pohľadov, segmentácie a hĺbkového zobrazovania.',
@@ -154,6 +169,11 @@ const copy = {
     contactTitle: 'Vytvorme ďalší pohľad.',
     contactDescription:
       'Výskumné partnerstvo, konzultácia v oblasti počítačového videnia, akademická spolupráca alebo ambiciózny 3D produkt — povedzte mi, čo potrebujete vidieť.',
+    collaborationModes: [
+      { code: 'R&D', title: 'Výskumné partnerstvo', text: 'Spoločné experimenty, publikácie, granty a validácia nových metód počítačového videnia.', subject: 'Výskumné partnerstvo', message: 'Rád/rada by som prediskutoval/a možnú výskumnú spoluprácu.\n\nVýskumná otázka alebo príležitosť:\n' },
+      { code: 'POC', title: 'Prototyp a uskutočniteľnosť', text: 'Od náročnej 3D alebo obrazovej myšlienky k merateľnému proof of concept.', subject: '3D / computer vision prototyp', message: 'Rád/rada by som prediskutoval/a technický prototyp alebo štúdiu uskutočniteľnosti.\n\nProblém a očakávaný výsledok:\n' },
+      { code: 'EDU', title: 'Výučba a prenos poznatkov', text: 'Workshopy, prednášky, vedenie prác a zrozumiteľná technická komunikácia.', subject: 'Výučba, workshop alebo vedenie práce', message: 'Rád/rada by som prediskutoval/a príležitosť v oblasti výučby, workshopu alebo vedenia práce.\n\nKontext a publikum:\n' },
+    ],
     sendMessage: 'Napísať správu',
     footer: 'Skúmam priestor medzi zachytenými pixelmi a rekonštruovanou realitou.',
     close: 'Zavrieť',
@@ -191,14 +211,14 @@ const projects: Record<Language, Project[]> = {
 };
 
 const publications = [
-  { year: '2026', title: 'KRAFT: Keypoint Robust and Adaptive Feature Tracking', authors: 'Jaroslav Venjarski, Gregor Rozinaj, Ivan Minárik, Šimon Tibenský', venue: 'IEEE Access · Vol. 14', summary: 'An efficient feature-matching method for small-baseline stereo that combines adaptive gradient thresholds with Q-NCC and reaches 98.9% precision on human-centric datasets.' },
-  { year: '2025', title: 'Novel View Synthesis using Landmark-based Warping', authors: 'Jaroslav Venjarski, Richard Filák, Vivek Dwivedi, Stanislav Šidla, Gregor Rozinaj', venue: 'ELMAR · Zadar, Croatia', summary: 'A lightweight real-time method for synthesizing a seamless middle facial view using extended face landmarks, Delaunay triangulation, and affine warping.' },
-  { year: '2024', title: 'Keypoint-Based Foreground-Background Image Segmentation', authors: 'Jaroslav Venjarski, Ľuboš Likó, Šimon Tibenský, Marek Vančo, Gregor Rozinaj', venue: 'ELMAR · Zadar, Croatia', summary: 'A practical segmentation method that combines keypoints and contours for precise foreground extraction in shifted stereo imagery.' },
-  { year: '2023', title: 'Analyzing Classical and LDI Depth-Aware Image Stitching for Enhanced Virtual View Representation', authors: 'Jaroslav Venjarski, Šimon Tibenský, Gregor Rozinaj', venue: 'IWSSIP · 30th International Conference', summary: 'A comparative analysis showing how Layered Depth Images reduce artifacts and geometric distortion compared with classical stitching.' },
-  { year: '2022', title: 'Automatic image stitching for stereo spherical image', authors: 'Jaroslav Venjarski, Vivek Dwivedi, Gregor Rozinaj', venue: 'ELMAR · Zadar, Croatia', summary: 'An investigation of automated local-feature stitching and the depth-related limitations of traditional 2D methods in close-range 3D scenes.' },
+  { year: '2026', title: 'KRAFT: Keypoint Robust and Adaptive Feature Tracking', authors: 'Jaroslav Venjarski, Gregor Rozinaj, Ivan Minárik, Šimon Tibenský', venue: 'IEEE Access · Vol. 14', summary: 'An efficient feature-matching method for small-baseline stereo that combines adaptive gradient thresholds with Q-NCC and reaches 98.9% precision on human-centric datasets.', url: 'https://doi.org/10.1109/ACCESS.2025.3649147' },
+  { year: '2025', title: 'Novel View Synthesis using Landmark-based Warping', authors: 'Jaroslav Venjarski, Richard Filák, Vivek Dwivedi, Stanislav Šidla, Gregor Rozinaj', venue: 'ELMAR · Zadar, Croatia', summary: 'A lightweight real-time method for synthesizing a seamless middle facial view using extended face landmarks, Delaunay triangulation, and affine warping.', url: 'https://doi.org/10.1109/ELMAR66948.2025.11194026' },
+  { year: '2024', title: 'Keypoint-Based Foreground-Background Image Segmentation', authors: 'Jaroslav Venjarski, Ľuboš Likó, Šimon Tibenský, Marek Vančo, Gregor Rozinaj', venue: 'ELMAR · Zadar, Croatia', summary: 'A practical segmentation method that combines keypoints and contours for precise foreground extraction in shifted stereo imagery.', url: 'https://doi.org/10.1109/ELMAR62909.2024.10694427' },
+  { year: '2023', title: 'Analyzing Classical and LDI Depth-Aware Image Stitching for Enhanced Virtual View Representation', authors: 'Jaroslav Venjarski, Šimon Tibenský, Gregor Rozinaj', venue: 'IWSSIP · 30th International Conference', summary: 'A comparative analysis showing how Layered Depth Images reduce artifacts and geometric distortion compared with classical stitching.', url: 'https://doi.org/10.1109/IWSSIP58668.2023.10180242' },
+  { year: '2022', title: 'Automatic image stitching for stereo spherical image', authors: 'Jaroslav Venjarski, Vivek Dwivedi, Gregor Rozinaj', venue: 'ELMAR · Zadar, Croatia', summary: 'An investigation of automated local-feature stitching and the depth-related limitations of traditional 2D methods in close-range 3D scenes.', url: 'https://doi.org/10.1109/ELMAR55880.2022.9899821' },
 ];
 
-const navIds = ['about', 'skills', 'research', 'publications', 'contact'] as const;
+const navIds = ['about', 'skills', 'research', 'lab', 'publications', 'contact'] as const;
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -206,6 +226,7 @@ export default function App() {
   const [activeSection, setActiveSection] = useState<(typeof navIds)[number]>('about');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isContactOpen, setIsContactOpen] = useState(false);
+  const [contactIntent, setContactIntent] = useState<ContactIntent | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.16], [0, 92]);
@@ -241,11 +262,14 @@ export default function App() {
 
   const nav = useMemo(() => navIds.map((id) => ({ id, label: t.nav[id] })), [t]);
   const toggleLanguage = () => setLang((current) => current === 'en' ? 'sk' : 'en');
-  const openContact = () => setIsContactOpen(true);
+  const openContact = (intent?: ContactIntent) => {
+    setContactIntent(intent ?? null);
+    setIsContactOpen(true);
+  };
 
   return (
     <div className="site-shell">
-      <SignalBackground />
+      <Suspense fallback={null}><SignalBackground /></Suspense>
       <motion.div className="scroll-progress" style={{ scaleX: scrollYProgress }} />
 
       <nav className="top-nav" aria-label="Primary navigation">
@@ -288,7 +312,7 @@ export default function App() {
 
       <main id="top" className="site-content">
         <section className="hero-section" aria-labelledby="hero-title">
-          <HeroDrone />
+          <Suspense fallback={null}><HeroDrone /></Suspense>
           <motion.div className="hero-copy" style={{ y: heroY, opacity: heroOpacity }}>
             <motion.div className="availability-pill" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
               <span className="availability-pill__pulse" />{t.status}
@@ -304,13 +328,15 @@ export default function App() {
             </motion.p>
             <motion.div className="hero-actions" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.52 }}>
               <a className="button-primary" href="#research">{t.viewResearch}<ArrowDownRight size={18} /></a>
-              <button className="button-secondary" onClick={openContact}>{t.contactMe}<ArrowUpRight size={18} /></button>
+              <button className="button-secondary" onClick={() => openContact()}>{t.contactMe}<ArrowUpRight size={18} /></button>
             </motion.div>
           </motion.div>
 
           <motion.div className="hero-visual" initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1, delay: 0.18 }}>
             <div className="hero-visual__label"><span>{t.visualLabel}</span><i /></div>
-            <Profile3D theme={theme} />
+            <Suspense fallback={<div className="profile3d-skeleton" aria-label="Loading interactive avatar" />}>
+              <Profile3D theme={theme} />
+            </Suspense>
           </motion.div>
 
           <div className="hero-metrics">
@@ -391,8 +417,21 @@ export default function App() {
           </div>
         </section>
 
+        <section id="lab" className="content-section lab-section">
+          <SectionHeading index="04" eyebrow={t.labEyebrow} title={t.labTitle} description={t.labDescription} />
+          <Reveal>
+            <Suspense fallback={<div className="lab-skeleton cyber-panel" aria-label="Loading interactive spatial-vision lab"><i /><i /><i /></div>}>
+              <ResearchPlayground
+                lang={lang}
+                theme={theme}
+                onContact={() => openContact({ subject: t.labContactSubject, message: t.labContactMessage })}
+              />
+            </Suspense>
+          </Reveal>
+        </section>
+
         <section id="publications" className="content-section">
-          <SectionHeading index="04" eyebrow={t.publicationsEyebrow} title={t.publicationsTitle} description={t.publicationsDescription} />
+          <SectionHeading index="05" eyebrow={t.publicationsEyebrow} title={t.publicationsTitle} description={t.publicationsDescription} />
           <div className="publication-list">
             {publications.map((publication, index) => (
               <Reveal key={publication.title} className="publication-row" delay={Math.min(index * 0.06, 0.2)}>
@@ -403,7 +442,7 @@ export default function App() {
                   <p className="publication-row__authors">{publication.authors}</p>
                   <p className="publication-row__summary"><strong>{t.abstract}.</strong> {publication.summary}</p>
                 </div>
-                <a href="https://www.researchgate.net/profile/Jaroslav-Venjarski" target="_blank" rel="noreferrer" aria-label={`${t.viewProfile}: ${publication.title}`}>
+                <a href={publication.url} target="_blank" rel="noreferrer" aria-label={`${t.viewProfile}: ${publication.title}`}>
                   <ExternalLink size={18} />
                 </a>
               </Reveal>
@@ -413,16 +452,29 @@ export default function App() {
 
         <section id="contact" className="contact-section">
           <Reveal className="contact-console cyber-panel">
-            <div className="contact-console__meta"><span>05 / CONTACT</span><span className="status-dot">CHANNEL OPEN</span></div>
+            <div className="contact-console__meta"><span>06 / CONTACT</span><span className="status-dot">CHANNEL OPEN</span></div>
             <p>{t.contactEyebrow}</p>
             <h2>{t.contactTitle}</h2>
             <p className="contact-console__description">{t.contactDescription}</p>
-            <button className="contact-launch" onClick={openContact}><Mail size={21} />{t.sendMessage}<ArrowUpRight size={19} /></button>
+            <div className="collaboration-grid">
+              {t.collaborationModes.map((mode, index) => {
+                const Icon = [Network, Code2, GraduationCap][index];
+                return (
+                  <button key={mode.code} type="button" onClick={() => openContact({ subject: mode.subject, message: mode.message })}>
+                    <span><Icon size={18} />{mode.code}</span>
+                    <strong>{mode.title}</strong>
+                    <p>{mode.text}</p>
+                    <ArrowUpRight size={16} />
+                  </button>
+                );
+              })}
+            </div>
+            <button className="contact-launch" onClick={() => openContact()}><Mail size={21} />{t.sendMessage}<ArrowUpRight size={19} /></button>
             <div className="social-links">
               <a href="https://www.researchgate.net/profile/Jaroslav-Venjarski" target="_blank" rel="noreferrer"><span>RG</span>ResearchGate<ArrowUpRight size={14} /></a>
               <a href="https://orcid.org/0000-0001-7944-4891" target="_blank" rel="noreferrer"><span>iD</span>ORCID<ArrowUpRight size={14} /></a>
-              <a href="https://github.com/" target="_blank" rel="noreferrer"><Github size={16} />GitHub<ArrowUpRight size={14} /></a>
-              <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer"><Linkedin size={16} />LinkedIn<ArrowUpRight size={14} /></a>
+              <a href="https://www.fei.stuba.sk/dokumenty/docs/Obhaj._dp/2026/Venjarski.pdf" target="_blank" rel="noreferrer"><BookOpen size={16} />PhD thesis<ArrowUpRight size={14} /></a>
+              <a href="mailto:jaroslav.venjarski@stuba.sk"><Mail size={16} />Email<ArrowUpRight size={14} /></a>
             </div>
           </Reveal>
         </section>
@@ -450,7 +502,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} lang={lang} />
+      <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} lang={lang} intent={contactIntent} />
     </div>
   );
 }

@@ -129,15 +129,15 @@ function DroneFlight() {
 
     flight.current.position.set(
       THREE.MathUtils.lerp(start, end, cycle),
-      0.35 + arc * 1.45 + Math.sin(cycle * Math.PI * 5) * 0.08,
-      -0.4 + arc * 1.35,
+      1.95 + arc * 0.55 + Math.sin(cycle * Math.PI * 5) * 0.05,
+      -0.75 + arc * 0.8,
     );
     flight.current.rotation.set(
       Math.sin(cycle * Math.PI * 2) * 0.04,
       -0.16 + Math.sin(cycle * Math.PI) * 0.18,
       -Math.cos(cycle * Math.PI) * 0.15,
     );
-    const scale = 0.34 + arc * 0.14;
+    const scale = 0.2 + arc * 0.065;
     flight.current.scale.setScalar(scale);
   });
 

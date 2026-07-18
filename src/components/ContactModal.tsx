@@ -15,7 +15,17 @@ const translations = {
   },
 } as const;
 
-export default function ContactModal({ isOpen, onClose, lang }: { isOpen: boolean; onClose: () => void; lang: 'en' | 'sk' }) {
+export default function ContactModal({
+  isOpen,
+  onClose,
+  lang,
+  intent,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  lang: 'en' | 'sk';
+  intent?: { subject: string; message: string } | null;
+}) {
   const t = translations[lang];
   const titleId = useId();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,6 +45,15 @@ export default function ContactModal({ isOpen, onClose, lang }: { isOpen: boolea
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setFormData((current) => ({
+      ...current,
+      subject: intent?.subject ?? '',
+      message: intent?.message ?? '',
+    }));
+  }, [intent, isOpen]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

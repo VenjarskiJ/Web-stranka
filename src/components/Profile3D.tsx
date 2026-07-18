@@ -111,31 +111,31 @@ function AvatarScene({ theme, targetYaw, targetPitch, velocity, interacting, red
           <>
             <points geometry={geometry} frustumCulled={false}>
               <pointsMaterial
-                color={theme === 'dark' ? '#5befff' : '#246f82'}
+                color={theme === 'dark' ? '#5befff' : '#607781'}
                 size={theme === 'dark' ? 0.006 : 0.007}
                 sizeAttenuation
                 transparent
-                opacity={theme === 'dark' ? 0.54 : 0.48}
+                opacity={theme === 'dark' ? 0.54 : 0.12}
                 depthWrite={false}
-                blending={THREE.AdditiveBlending}
+                blending={theme === 'dark' ? THREE.AdditiveBlending : THREE.NormalBlending}
               />
             </points>
             <points geometry={geometry} frustumCulled={false}>
               <pointsMaterial
-                color={theme === 'dark' ? '#41edff' : '#2a99b4'}
+                color={theme === 'dark' ? '#41edff' : '#166878'}
                 size={theme === 'dark' ? 0.005 : 0.006}
                 sizeAttenuation
                 transparent
-                opacity={theme === 'dark' ? 0.18 : 0.14}
+                opacity={theme === 'dark' ? 0.18 : 0.035}
                 depthWrite={false}
-                blending={THREE.AdditiveBlending}
+                blending={theme === 'dark' ? THREE.AdditiveBlending : THREE.NormalBlending}
               />
             </points>
             {faceGeometry ? (
               <points geometry={faceGeometry} frustumCulled={false} renderOrder={4}>
                 <pointsMaterial
-                  color={theme === 'dark' ? '#b1847b' : '#58717a'}
-                  size={theme === 'dark' ? 0.009 : 0.01}
+                  color={theme === 'dark' ? '#b1847b' : '#ffffff'}
+                  size={theme === 'dark' ? 0.011 : 0.038}
                   sizeAttenuation
                   vertexColors
                   transparent
