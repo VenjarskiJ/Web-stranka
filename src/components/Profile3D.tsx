@@ -10,7 +10,8 @@ import {
 } from 'react';
 import * as THREE from 'three';
 
-const AVATAR_URL = './avatar/avatar-hull.bin';
+const AVATAR_HULL_URL = './avatar/avatar-hull.bin?v=7';
+const AVATAR_FACE_URL = './avatar/avatar-face.bin?v=7';
 const MAX_YAW = Math.PI * 0.46;
 
 type AvatarGeometryState = {
@@ -18,14 +19,14 @@ type AvatarGeometryState = {
   failed: boolean;
 };
 
-function useAvatarGeometry(): AvatarGeometryState {
+function useAvatarGeometry(url: string): AvatarGeometryState {
   const [buffer, setBuffer] = useState<ArrayBuffer | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
 
-    fetch(AVATAR_URL, { signal: controller.signal })
+    fetch(url, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error(`Avatar request failed: ${response.status}`);
         return response.arrayBuffer();
@@ -36,7 +37,7 @@ function useAvatarGeometry(): AvatarGeometryState {
       });
 
     return () => controller.abort();
-  }, []);
+  }, [url]);
 
   const geometry = useMemo(() => {
     if (!buffer) return null;
@@ -71,7 +72,8 @@ type AvatarSceneProps = {
 };
 
 function AvatarScene({ theme, targetYaw, targetPitch, velocity, interacting, reducedMotion }: AvatarSceneProps) {
-  const { geometry } = useAvatarGeometry();
+  const { geometry } = useAvatarGeometry(AVATAR_HULL_URL);
+  const { geometry: faceGeometry } = useAvatarGeometry(AVATAR_FACE_URL);
   const avatar = useRef<THREE.Group>(null);
   const orbit = useRef<THREE.Group>(null);
 
@@ -109,26 +111,40 @@ function AvatarScene({ theme, targetYaw, targetPitch, velocity, interacting, red
           <>
             <points geometry={geometry} frustumCulled={false}>
               <pointsMaterial
-                color={theme === 'dark' ? '#ffffff' : '#5c7f88'}
-                size={theme === 'dark' ? 0.011 : 0.013}
+                color={theme === 'dark' ? '#5befff' : '#246f82'}
+                size={theme === 'dark' ? 0.006 : 0.007}
                 sizeAttenuation
-                vertexColors
-                opacity={theme === 'dark' ? 0.88 : 1}
-                depthWrite
-                blending={THREE.NormalBlending}
+                transparent
+                opacity={theme === 'dark' ? 0.54 : 0.48}
+                depthWrite={false}
+                blending={THREE.AdditiveBlending}
               />
             </points>
             <points geometry={geometry} frustumCulled={false}>
               <pointsMaterial
                 color={theme === 'dark' ? '#41edff' : '#2a99b4'}
-                size={theme === 'dark' ? 0.007 : 0.009}
+                size={theme === 'dark' ? 0.005 : 0.006}
                 sizeAttenuation
                 transparent
-                opacity={theme === 'dark' ? 0.1 : 0.28}
+                opacity={theme === 'dark' ? 0.18 : 0.14}
                 depthWrite={false}
                 blending={THREE.AdditiveBlending}
               />
             </points>
+            {faceGeometry ? (
+              <points geometry={faceGeometry} frustumCulled={false} renderOrder={4}>
+                <pointsMaterial
+                  color={theme === 'dark' ? '#b1847b' : '#58717a'}
+                  size={theme === 'dark' ? 0.009 : 0.01}
+                  sizeAttenuation
+                  vertexColors
+                  transparent
+                  opacity={theme === 'dark' ? 0.98 : 1}
+                  depthWrite
+                  blending={THREE.NormalBlending}
+                />
+              </points>
+            ) : null}
           </>
         ) : null}
       </group>
