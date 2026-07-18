@@ -1,0 +1,200 @@
+{
+  "count": 32,
+  "width": 720,
+  "height": 960,
+  "sourceDuration": 29.24527777777778,
+  "frames": [
+    {
+      "index": 0,
+      "time": 28.77,
+      "sharpness": 40.4,
+      "bytes": 32680
+    },
+    {
+      "index": 1,
+      "time": 27.653,
+      "sharpness": 30.7,
+      "bytes": 33626
+    },
+    {
+      "index": 2,
+      "time": 27.017,
+      "sharpness": 33.3,
+      "bytes": 28468
+    },
+    {
+      "index": 3,
+      "time": 25.96,
+      "sharpness": 24.5,
+      "bytes": 28750
+    },
+    {
+      "index": 4,
+      "time": 25.264,
+      "sharpness": 15.7,
+      "bytes": 30942
+    },
+    {
+      "index": 5,
+      "time": 24.087,
+      "sharpness": 21.7,
+      "bytes": 32026
+    },
+    {
+      "index": 6,
+      "time": 23.271,
+      "sharpness": 23.6,
+      "bytes": 41452
+    },
+    {
+      "index": 7,
+      "time": 22.694,
+      "sharpness": 23.6,
+      "bytes": 38272
+    },
+    {
+      "index": 8,
+      "time": 21.457,
+      "sharpness": 42.6,
+      "bytes": 38444
+    },
+    {
+      "index": 9,
+      "time": 20.581,
+      "sharpness": 62.7,
+      "bytes": 38100
+    },
+    {
+      "index": 10,
+      "time": 20.004,
+      "sharpness": 70.8,
+      "bytes": 38536
+    },
+    {
+      "index": 11,
+      "time": 19.188,
+      "sharpness": 24.5,
+      "bytes": 27976
+    },
+    {
+      "index": 12,
+      "time": 18.191,
+      "sharpness": 49.2,
+      "bytes": 35716
+    },
+    {
+      "index": 13,
+      "time": 17.435,
+      "sharpness": 34.1,
+      "bytes": 32570
+    },
+    {
+      "index": 14,
+      "time": 16.498,
+      "sharpness": 16.1,
+      "bytes": 31668
+    },
+    {
+      "index": 15,
+      "time": 15.562,
+      "sharpness": 25.0,
+      "bytes": 33608
+    },
+    {
+      "index": 16,
+      "time": 14.445,
+      "sharpness": 24.8,
+      "bytes": 28474
+    },
+    {
+      "index": 17,
+      "time": 13.928,
+      "sharpness": 25.2,
+      "bytes": 30832
+    },
+    {
+      "index": 18,
+      "time": 12.692,
+      "sharpness": 21.5,
+      "bytes": 31156
+    },
+    {
+      "index": 19,
+      "time": 11.875,
+      "sharpness": 16.4,
+      "bytes": 34400
+    },
+    {
+      "index": 20,
+      "time": 10.999,
+      "sharpness": 22.4,
+      "bytes": 33764
+    },
+    {
+      "index": 21,
+      "time": 10.062,
+      "sharpness": 27.2,
+      "bytes": 34208
+    },
+    {
+      "index": 22,
+      "time": 9.546,
+      "sharpness": 32.1,
+      "bytes": 32624
+    },
+    {
+      "index": 23,
+      "time": 8.609,
+      "sharpness": 25.6,
+      "bytes": 36768
+    },
+    {
+      "index": 24,
+      "time": 7.673,
+      "sharpness": 24.7,
+      "bytes": 35932
+    },
+    {
+      "index": 25,
+      "time": 6.736,
+      "sharpness": 22.7,
+      "bytes": 33966
+    },
+    {
+      "index": 26,
+      "time": 6.039,
+      "sharpness": 44.5,
+      "bytes": 36866
+    },
+    {
+      "index": 27,
+      "time": 4.863,
+      "sharpness": 41.5,
+      "bytes": 33442
+    },
+    {
+      "index": 28,
+      "time": 4.166,
+      "sharpness": 25.0,
+      "bytes": 31974
+    },
+    {
+      "index": 29,
+      "time": 3.05,
+      "sharpness": 32.7,
+      "bytes": 28534
+    },
+    {
+      "index": 30,
+      "time": 2.173,
+      "sharpness": 26.8,
+      "bytes": 32330
+    },
+    {
+      "index": 31,
+      "time": 1.657,
+      "sharpness": 19.4,
+      "bytes": 33204
+    }
+  ]
+}

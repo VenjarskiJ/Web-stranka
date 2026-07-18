@@ -1,11 +1,16 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float } from '@react-three/drei';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { type CSSProperties, useEffect, useMemo, useRef } from 'react';
+import { type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 
-const PROFILE_IMAGE =
-  'https://i1.rgstatic.net/ii/profile.image/11431281728263101-1763171443560_Q512/Jaroslav-Venjarski.jpg';
+const AVATAR_FRAME_COUNT = 32;
+const AVATAR_SIDE_RANGE = 8;
+
+const avatarFrame = (index: number) => {
+  const normalized = ((index % AVATAR_FRAME_COUNT) + AVATAR_FRAME_COUNT) % AVATAR_FRAME_COUNT;
+  return `./avatar/view-${String(normalized).padStart(2, '0')}.webp`;
+};
 
 const scanVertex = /* glsl */ `
   varying vec2 vUv;
@@ -182,56 +187,111 @@ function HologramScene({ velocity }: { velocity: React.MutableRefObject<number> 
   );
 }
 
-export default function Profile3D() {
+type Profile3DProps = {
+  theme: 'dark' | 'light';
+};
+
+export default function Profile3D({ theme }: Profile3DProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const resetTimer = useRef<number | undefined>(undefined);
   const lastPointer = useRef({ x: 0, y: 0, at: performance.now() });
   const velocity = useRef(0);
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const [isInteracting, setIsInteracting] = useState(false);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const glitch = useMotionValue(0);
-  const springX = useSpring(x, { stiffness: 130, damping: 18, mass: 0.55 });
-  const springY = useSpring(y, { stiffness: 130, damping: 18, mass: 0.55 });
-  const rotateX = useTransform(springY, [-1, 1], ['8deg', '-8deg']);
-  const rotateY = useTransform(springX, [-1, 1], ['-10deg', '10deg']);
-  const translateXRed = useTransform(glitch, [0, 1], [1.5, 11]);
-  const translateXBlue = useTransform(glitch, [0, 1], [-1.5, -11]);
-  const glitchOpacity = useTransform(glitch, [0, 0.15, 1], [0.055, 0.17, 0.48]);
+  const springX = useSpring(x, { stiffness: 150, damping: 23, mass: 0.55 });
+  const springY = useSpring(y, { stiffness: 150, damping: 23, mass: 0.55 });
+  const rotateX = useTransform(springY, [-1, 1], ['2.8deg', '-2.8deg']);
+  const rotateY = useTransform(springX, [-1, 1], ['-4deg', '4deg']);
+  const translateXRed = useTransform(glitch, [0, 1], [0, 10]);
+  const translateXBlue = useTransform(glitch, [0, 1], [0, -10]);
+  const glitchOpacity = useTransform(glitch, [0, 0.15, 1], [0.025, 0.13, 0.42]);
+  const currentSource = avatarFrame(currentFrame);
 
   useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
-      const rect = cardRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const normalizedX = THREE.MathUtils.clamp((event.clientX - rect.left) / rect.width * 2 - 1, -1, 1);
-      const normalizedY = THREE.MathUtils.clamp((event.clientY - rect.top) / rect.height * 2 - 1, -1, 1);
-      x.set(normalizedX);
-      y.set(normalizedY);
-
-      const now = performance.now();
-      const elapsed = Math.max(now - lastPointer.current.at, 16);
-      const distance = Math.hypot(event.clientX - lastPointer.current.x, event.clientY - lastPointer.current.y);
-      const speed = THREE.MathUtils.clamp(distance / elapsed / 1.4, 0, 1);
-      velocity.current = Math.max(velocity.current, speed);
-      glitch.set(speed);
-      lastPointer.current = { x: event.clientX, y: event.clientY, at: now };
+    const preload = () => {
+      Array.from({ length: AVATAR_FRAME_COUNT }, (_, index) => index).forEach((index) => {
+        const image = new Image();
+        image.decoding = 'async';
+        image.src = avatarFrame(index);
+      });
     };
 
-    const reset = () => {
-      x.set(0);
-      y.set(0);
-      glitch.set(0);
-    };
+    const timer = window.setTimeout(preload, 250);
+    return () => window.clearTimeout(timer);
+  }, []);
 
-    window.addEventListener('pointermove', handlePointerMove, { passive: true });
-    document.addEventListener('pointerleave', reset);
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerleave', reset);
-    };
-  }, [glitch, x, y]);
+  useEffect(() => () => window.clearTimeout(resetTimer.current), []);
+
+  const updateFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    window.clearTimeout(resetTimer.current);
+    const normalizedX = THREE.MathUtils.clamp(((event.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
+    const normalizedY = THREE.MathUtils.clamp(((event.clientY - rect.top) / rect.height) * 2 - 1, -1, 1);
+    const signedFrame = Math.round(normalizedX * AVATAR_SIDE_RANGE);
+    setCurrentFrame((signedFrame + AVATAR_FRAME_COUNT) % AVATAR_FRAME_COUNT);
+    x.set(normalizedX);
+    y.set(normalizedY);
+
+    const now = performance.now();
+    const elapsed = Math.max(now - lastPointer.current.at, 16);
+    const distance = Math.hypot(event.clientX - lastPointer.current.x, event.clientY - lastPointer.current.y);
+    const speed = THREE.MathUtils.clamp(distance / elapsed / 1.4, 0, 1);
+    velocity.current = Math.max(velocity.current, speed);
+    glitch.set(speed);
+    lastPointer.current = { x: event.clientX, y: event.clientY, at: now };
+  };
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    cardRef.current?.setPointerCapture(event.pointerId);
+    setIsInteracting(true);
+    updateFromPointer(event);
+  };
+
+  const handlePointerLeave = () => {
+    setIsInteracting(false);
+    x.set(0);
+    y.set(0);
+    glitch.set(0);
+    resetTimer.current = window.setTimeout(() => setCurrentFrame(0), 420);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home') return;
+    event.preventDefault();
+    if (event.key === 'Home') {
+      setCurrentFrame(0);
+      return;
+    }
+    setCurrentFrame((frame) => (
+      event.key === 'ArrowRight'
+        ? (frame + 1) % AVATAR_FRAME_COUNT
+        : (frame - 1 + AVATAR_FRAME_COUNT) % AVATAR_FRAME_COUNT
+    ));
+  };
+
+  const viewAngle = currentFrame <= AVATAR_FRAME_COUNT / 2
+    ? currentFrame * (360 / AVATAR_FRAME_COUNT)
+    : (currentFrame - AVATAR_FRAME_COUNT) * (360 / AVATAR_FRAME_COUNT);
 
   return (
-    <div ref={cardRef} className="profile-hologram" aria-label="Interactive holographic portrait of Jaroslav Venjarski">
+    <div
+      ref={cardRef}
+      className={`profile-hologram profile-hologram--${theme}${isInteracting ? ' is-interacting' : ''}`}
+      role="group"
+      tabIndex={0}
+      aria-label="Interactive multi-view portrait of Jaroslav Venjarski. Move the pointer or use the arrow keys to rotate."
+      onPointerMove={updateFromPointer}
+      onPointerDown={handlePointerDown}
+      onPointerUp={() => setIsInteracting(false)}
+      onPointerCancel={handlePointerLeave}
+      onPointerLeave={handlePointerLeave}
+      onKeyDown={handleKeyDown}
+    >
       <motion.div
         className="profile-hologram__stage"
         style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
@@ -239,36 +299,36 @@ export default function Profile3D() {
         <div className="profile-hologram__halo" />
         <div
           className="profile-hologram__frame"
-          style={{ '--holo-photo': `url(${PROFILE_IMAGE})` } as CSSProperties}
+          style={{ '--holo-photo': `url(${currentSource})` } as CSSProperties}
         >
+          <div className="profile-hologram__depth profile-hologram__depth--rear" aria-hidden="true" />
           <div className="profile-hologram__fallback" aria-hidden="true">JV</div>
           <img
-            src={PROFILE_IMAGE}
-            alt="Jaroslav Venjarski"
-            referrerPolicy="no-referrer"
+            src={currentSource}
+            alt="Jaroslav Venjarski, interactive reconstructed portrait"
             className="profile-hologram__image"
-            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+            width={720}
+            height={960}
+            loading="eager"
+            fetchPriority="high"
+            draggable={false}
           />
           <motion.img
             aria-hidden="true"
-            src={PROFILE_IMAGE}
-            referrerPolicy="no-referrer"
+            src={currentSource}
             className="profile-hologram__image profile-hologram__image--red"
             style={{ x: translateXRed, opacity: glitchOpacity }}
-            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+            draggable={false}
           />
           <motion.img
             aria-hidden="true"
-            src={PROFILE_IMAGE}
-            referrerPolicy="no-referrer"
+            src={currentSource}
             className="profile-hologram__image profile-hologram__image--blue"
             style={{ x: translateXBlue, opacity: glitchOpacity }}
-            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+            draggable={false}
           />
           <div className="profile-hologram__slices" aria-hidden="true">
-            {[0, 1, 2, 3, 4].map((slice) => (
-              <span key={slice} />
-            ))}
+            {[0, 1, 2, 3, 4].map((slice) => <span key={slice} />)}
           </div>
           <div className="profile-hologram__grade" />
           <div className="profile-hologram__dissolve" />
@@ -286,17 +346,22 @@ export default function Profile3D() {
         </div>
 
         <div className="profile-hologram__hud profile-hologram__hud--top">
-          <span>SPATIAL ID / JV-03</span>
-          <span className="status-dot">LIVE</span>
+          <span>VOLUMETRIC ID / JV-03</span>
+          <span className="status-dot">{theme === 'dark' ? 'HOLOGRAM' : 'REALITY'}</span>
         </div>
         <div className="profile-hologram__hud profile-hologram__hud--bottom">
-          <span>SPATIAL SIGNAL</span>
-          <span>CALIBRATED</span>
+          <span>VIEW {viewAngle > 0 ? '+' : ''}{Math.round(viewAngle)}°</span>
+          <span>{String(currentFrame + 1).padStart(2, '0')} / {AVATAR_FRAME_COUNT}</span>
         </div>
         <div className="profile-hologram__projector" aria-hidden="true">
           <span /><span /><span />
         </div>
       </motion.div>
+      <div className="profile-hologram__rotate-hint" aria-hidden="true">
+        <span>ROTATE</span>
+        <i><b style={{ left: `${50 + (viewAngle / 90) * 42}%` }} /></i>
+        <span>MOVE / DRAG</span>
+      </div>
     </div>
   );
 }

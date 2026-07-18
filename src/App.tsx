@@ -310,7 +310,7 @@ export default function App() {
 
           <motion.div className="hero-visual" initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1, delay: 0.18 }}>
             <div className="hero-visual__label"><span>{t.visualLabel}</span><i /></div>
-            <Profile3D />
+            <Profile3D theme={theme} />
           </motion.div>
 
           <div className="hero-metrics">

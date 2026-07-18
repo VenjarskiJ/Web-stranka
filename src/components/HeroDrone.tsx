@@ -137,12 +137,12 @@ function DroneFlight() {
       -0.16 + Math.sin(cycle * Math.PI) * 0.18,
       -Math.cos(cycle * Math.PI) * 0.15,
     );
-    const scale = 0.58 + arc * 0.24;
+    const scale = 0.34 + arc * 0.14;
     flight.current.scale.setScalar(scale);
   });
 
   return (
-    <Trail width={0.42} length={5.2} color={trailColor} attenuation={(width) => width * width}>
+    <Trail width={0.24} length={3.8} color={trailColor} attenuation={(width) => width * width}>
       <group ref={flight}>
         <DroneModel />
       </group>
