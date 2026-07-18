@@ -1,18 +1,21 @@
 {
-  "name": "react-example",
+  "name": "jaroslav-venjarski-portfolio",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
+    "build": "vite build && node scripts/stage-sites.mjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "@tailwindcss/vite": "^4.1.14",
     "@types/d3": "^7.4.3",
+    "@types/three": "^0.185.1",
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
     "d3": "^7.9.0",
@@ -25,6 +28,7 @@
     "react-dom": "^19.0.0",
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.5.0",
+    "three": "^0.185.1",
     "vite": "^6.2.0"
   },
   "devDependencies": {

@@ -1,187 +1,100 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, CheckCircle2 } from 'lucide-react';
-
-interface ContactModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  lang: 'en' | 'sk';
-}
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowUpRight, CheckCircle2, Send, X } from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
 
 const translations = {
   en: {
-    title: "Get in Touch",
-    name: "Name",
-    email: "Email",
-    subject: "Subject",
-    message: "Message",
-    send: "Send Message",
-    sending: "Sending...",
-    success: "Message sent successfully!",
-    successDesc: "Thank you for reaching out. I'll get back to you as soon as possible.",
-    close: "Close"
+    eyebrow: 'SECURE CHANNEL / EMAIL', title: 'Start a conversation', name: 'Name', email: 'Email', subject: 'Subject', message: 'Message',
+    namePlaceholder: 'Your name', emailPlaceholder: 'you@example.com', subjectPlaceholder: 'Research collaboration', messagePlaceholder: 'Tell me about the problem, idea, or opportunity…',
+    send: 'Prepare email', opening: 'Opening email app…', success: 'Email draft prepared', successDesc: 'Your email application should now contain the message. Review it and press send when ready.', close: 'Close',
   },
   sk: {
-    title: "Kontaktujte ma",
-    name: "Meno",
-    email: "Email",
-    subject: "Predmet",
-    message: "Správa",
-    send: "Odoslať správu",
-    sending: "Odosielanie...",
-    success: "Správa bola úspešne odoslaná!",
-    successDesc: "Ďakujem za správu. Ozvem sa vám hneď ako to bude možné.",
-    close: "Zavrieť"
-  }
-};
+    eyebrow: 'ZABEZPEČENÝ KANÁL / E-MAIL', title: 'Začnime rozhovor', name: 'Meno', email: 'E-mail', subject: 'Predmet', message: 'Správa',
+    namePlaceholder: 'Vaše meno', emailPlaceholder: 'vy@example.com', subjectPlaceholder: 'Výskumná spolupráca', messagePlaceholder: 'Opíšte problém, nápad alebo príležitosť…',
+    send: 'Pripraviť e-mail', opening: 'Otváram e-mailovú aplikáciu…', success: 'Koncept e-mailu je pripravený', successDesc: 'V e-mailovej aplikácii by mala byť pripravená vaša správa. Skontrolujte ju a odošlite.', close: 'Zavrieť',
+  },
+} as const;
 
-export default function ContactModal({ isOpen, onClose, lang }: ContactModalProps) {
+export default function ContactModal({ isOpen, onClose, lang }: { isOpen: boolean; onClose: () => void; lang: 'en' | 'sk' }) {
   const t = translations[lang];
+  const titleId = useId();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  });
+  const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setIsSubmitting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
+    const body = `From: ${formData.name} (${formData.email})\n\n${formData.message}`;
+    const mailto = `mailto:jaroslav.venjarski@stuba.sk?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(body)}`;
+    window.setTimeout(() => {
+      window.location.href = mailto;
       setIsSubmitting(false);
       setIsSuccess(true);
-      
-      // Actually open mailto link
-      const mailtoLink = `mailto:jaroslav.venjarski@stuba.sk?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(`From: ${formData.name} (${formData.email})\n\n${formData.message}`)}`;
-      window.location.href = mailtoLink;
-      
-      setTimeout(() => {
-        setIsSuccess(false);
-        setFormData({ name: '', email: '', subject: '', message: '' });
-        onClose();
-      }, 3000);
-    }, 1500);
+    }, 320);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleClose = () => {
+    onClose();
+    window.setTimeout(() => setIsSuccess(false), 260);
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <motion.div className="contact-modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={handleClose}>
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            className="contact-modal cyber-panel"
+            initial={{ opacity: 0, scale: 0.94, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg z-50 p-6"
+            exit={{ opacity: 0, scale: 0.96, y: 18 }}
+            onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="glass dark:bg-black/40 backdrop-blur-xl border border-black/10 dark:border-white/10 p-8 rounded-3xl shadow-2xl relative overflow-hidden">
-              <button
-                onClick={onClose}
-                className="absolute right-6 top-6 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-500 dark:text-white/50 hover:text-gray-900 dark:hover:text-white"
-              >
-                <X size={20} />
-              </button>
+            <button className="icon-button contact-modal__close" onClick={handleClose} aria-label={t.close}><X size={20} /></button>
+            <p className="contact-modal__eyebrow">{t.eyebrow}</p>
+            <h2 id={titleId}>{t.title}</h2>
 
+            <AnimatePresence mode="wait">
               {isSuccess ? (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center justify-center py-12 text-center"
-                >
-                  <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mb-6">
-                    <CheckCircle2 size={32} />
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.success}</h3>
-                  <p className="text-gray-600 dark:text-white/70">{t.successDesc}</p>
+                <motion.div className="contact-success" key="success" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <CheckCircle2 size={42} />
+                  <h3>{t.success}</h3>
+                  <p>{t.successDesc}</p>
+                  <button className="button-secondary" onClick={handleClose}>{t.close}<ArrowUpRight size={17} /></button>
                 </motion.div>
               ) : (
-                <>
-                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">{t.title}</h2>
-                  <form onSubmit={handleSubmit} className="space-y-5">
-                    <div className="grid grid-cols-2 gap-5">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-white/80">{t.name}</label>
-                        <input
-                          required
-                          type="text"
-                          name="name"
-                          value={formData.name}
-                          onChange={handleChange}
-                          className="w-full px-4 py-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30"
-                          placeholder="John Doe"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-white/80">{t.email}</label>
-                        <input
-                          required
-                          type="email"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleChange}
-                          className="w-full px-4 py-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30"
-                          placeholder="john@example.com"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700 dark:text-white/80">{t.subject}</label>
-                      <input
-                        required
-                        type="text"
-                        name="subject"
-                        value={formData.subject}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30"
-                        placeholder="Project Inquiry"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700 dark:text-white/80">{t.message}</label>
-                      <textarea
-                        required
-                        name="message"
-                        value={formData.message}
-                        onChange={handleChange}
-                        rows={4}
-                        className="w-full px-4 py-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 resize-none"
-                        placeholder="Hello Jaroslav..."
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-lg hover:shadow-lg hover:shadow-cyan-500/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {isSubmitting ? (
-                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <Send size={20} />
-                          {t.send}
-                        </>
-                      )}
-                    </button>
-                  </form>
-                </>
+                <motion.form key="form" onSubmit={handleSubmit} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="contact-form__row">
+                    <label><span>{t.name}</span><input required autoFocus name="name" autoComplete="name" value={formData.name} onChange={(event) => setFormData({ ...formData, name: event.target.value })} placeholder={t.namePlaceholder} /></label>
+                    <label><span>{t.email}</span><input required type="email" name="email" autoComplete="email" value={formData.email} onChange={(event) => setFormData({ ...formData, email: event.target.value })} placeholder={t.emailPlaceholder} /></label>
+                  </div>
+                  <label><span>{t.subject}</span><input required name="subject" value={formData.subject} onChange={(event) => setFormData({ ...formData, subject: event.target.value })} placeholder={t.subjectPlaceholder} /></label>
+                  <label><span>{t.message}</span><textarea required name="message" rows={5} value={formData.message} onChange={(event) => setFormData({ ...formData, message: event.target.value })} placeholder={t.messagePlaceholder} /></label>
+                  <button className="contact-form__submit" type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <span className="button-loader" /> : <Send size={18} />}{isSubmitting ? t.opening : t.send}<ArrowUpRight size={17} />
+                  </button>
+                </motion.form>
               )}
-            </div>
+            </AnimatePresence>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   );

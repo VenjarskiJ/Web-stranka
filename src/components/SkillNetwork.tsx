@@ -1,296 +1,256 @@
-import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 
-interface Node extends d3.SimulationNodeDatum {
+interface NodeDatum extends d3.SimulationNodeDatum {
   id: string;
-  group: string;
+  group: 'domain' | 'skill';
   radius: number;
-  description?: string;
 }
 
-interface Link extends d3.SimulationLinkDatum<Node> {
-  source: string | Node;
-  target: string | Node;
+interface LinkDatum extends d3.SimulationLinkDatum<NodeDatum> {
+  source: string | NodeDatum;
+  target: string | NodeDatum;
   value: number;
 }
 
-const data = {
-  nodes: [
-    // Domains
-    { id: 'Computer Vision', group: 'domain', radius: 30, description: 'Core expertise in analyzing and understanding visual data.' },
-    { id: 'Signal Processing', group: 'domain', radius: 30, description: 'Processing and analyzing analog and digital signals.' },
-    { id: 'Software Eng.', group: 'domain', radius: 30, description: 'Building robust, scalable, and efficient software systems.' },
-    { id: 'AI & ML', group: 'domain', radius: 30, description: 'Applying machine learning models to solve complex problems.' },
-    
-    // Skills
-    { id: 'Novel View Synthesis', group: 'skill', radius: 15, description: 'Generating new views of a scene from a given set of images.' },
-    { id: '3D Reconstruction', group: 'skill', radius: 15, description: 'Reconstructing 3D scenes from 2D images.' },
-    { id: 'Feature Matching', group: 'skill', radius: 15, description: 'Identifying corresponding points across different images (KRAFT, SIFT).' },
-    { id: 'NeRF', group: 'skill', radius: 15, description: 'Neural Radiance Fields for view synthesis.' },
-    { id: '3DGS', group: 'skill', radius: 15, description: '3D Gaussian Splatting for real-time rendering.' },
-    { id: 'PyTorch', group: 'skill', radius: 15, description: 'Deep learning framework.' },
-    { id: 'Python', group: 'skill', radius: 15, description: 'Primary programming language for research and ML.' },
-    { id: 'C++', group: 'skill', radius: 15, description: 'High-performance computing and real-time systems.' },
-    { id: 'React', group: 'skill', radius: 15, description: 'Frontend development for interactive web applications.' },
-    { id: 'DSP', group: 'skill', radius: 15, description: 'Digital Signal Processing techniques.' },
-    { id: 'Filters', group: 'skill', radius: 15, description: 'Analog and digital filter design.' },
-  ],
-  links: [
-    // Domain to Skill
-    { source: 'Computer Vision', target: 'Novel View Synthesis', value: 2 },
-    { source: 'Computer Vision', target: '3D Reconstruction', value: 2 },
-    { source: 'Computer Vision', target: 'Feature Matching', value: 2 },
-    { source: 'AI & ML', target: 'NeRF', value: 2 },
-    { source: 'AI & ML', target: '3DGS', value: 2 },
-    { source: 'AI & ML', target: 'PyTorch', value: 2 },
-    { source: 'Software Eng.', target: 'Python', value: 2 },
-    { source: 'Software Eng.', target: 'C++', value: 2 },
-    { source: 'Software Eng.', target: 'React', value: 2 },
-    { source: 'Signal Processing', target: 'DSP', value: 2 },
-    { source: 'Signal Processing', target: 'Filters', value: 2 },
-    
-    // Cross-connections
-    { source: 'Novel View Synthesis', target: 'NeRF', value: 1 },
-    { source: '3D Reconstruction', target: '3DGS', value: 1 },
-    { source: 'Feature Matching', target: 'C++', value: 1 },
-    { source: 'PyTorch', target: 'Python', value: 1 },
-    { source: 'Computer Vision', target: 'AI & ML', value: 3 },
-    { source: 'Signal Processing', target: 'Computer Vision', value: 1 },
-  ]
-};
+const nodes: NodeDatum[] = [
+  { id: 'Computer Vision', group: 'domain', radius: 27 },
+  { id: 'Signal Processing', group: 'domain', radius: 27 },
+  { id: 'Software Eng.', group: 'domain', radius: 27 },
+  { id: 'AI & ML', group: 'domain', radius: 27 },
+  { id: 'Novel View Synthesis', group: 'skill', radius: 13 },
+  { id: '3D Reconstruction', group: 'skill', radius: 13 },
+  { id: 'Feature Matching', group: 'skill', radius: 13 },
+  { id: 'NeRF', group: 'skill', radius: 13 },
+  { id: '3DGS', group: 'skill', radius: 13 },
+  { id: 'PyTorch', group: 'skill', radius: 13 },
+  { id: 'Python', group: 'skill', radius: 13 },
+  { id: 'C++', group: 'skill', radius: 13 },
+  { id: 'React', group: 'skill', radius: 13 },
+  { id: 'DSP', group: 'skill', radius: 13 },
+  { id: 'Filters', group: 'skill', radius: 13 },
+];
+
+const links: LinkDatum[] = [
+  { source: 'Computer Vision', target: 'Novel View Synthesis', value: 2 },
+  { source: 'Computer Vision', target: '3D Reconstruction', value: 2 },
+  { source: 'Computer Vision', target: 'Feature Matching', value: 2 },
+  { source: 'AI & ML', target: 'NeRF', value: 2 },
+  { source: 'AI & ML', target: '3DGS', value: 2 },
+  { source: 'AI & ML', target: 'PyTorch', value: 2 },
+  { source: 'Software Eng.', target: 'Python', value: 2 },
+  { source: 'Software Eng.', target: 'C++', value: 2 },
+  { source: 'Software Eng.', target: 'React', value: 2 },
+  { source: 'Signal Processing', target: 'DSP', value: 2 },
+  { source: 'Signal Processing', target: 'Filters', value: 2 },
+  { source: 'Novel View Synthesis', target: 'NeRF', value: 1 },
+  { source: '3D Reconstruction', target: '3DGS', value: 1 },
+  { source: 'Feature Matching', target: 'C++', value: 1 },
+  { source: 'PyTorch', target: 'Python', value: 1 },
+  { source: 'Computer Vision', target: 'AI & ML', value: 3 },
+  { source: 'Signal Processing', target: 'Computer Vision', value: 1 },
+];
 
 const translations = {
   en: {
-    hoverPrompt: "Hover over a node to see details or drag to interact with the network.",
-    domain: "domain",
-    skill: "skill",
-    nodes: {
-      "Computer Vision": "Core expertise in analyzing and understanding visual data.",
-      "Signal Processing": "Processing and analyzing analog and digital signals.",
-      "Software Eng.": "Building robust, scalable, and efficient software systems.",
-      "AI & ML": "Applying machine learning models to solve complex problems.",
-      "Novel View Synthesis": "Generating new views of a scene from a given set of images.",
-      "3D Reconstruction": "Reconstructing 3D scenes from 2D images.",
-      "Feature Matching": "Identifying corresponding points across different images (KRAFT, SIFT).",
-      "NeRF": "Neural Radiance Fields for view synthesis.",
-      "3DGS": "3D Gaussian Splatting for real-time rendering.",
-      "PyTorch": "Deep learning framework.",
-      "Python": "Primary programming language for research and ML.",
-      "C++": "High-performance computing and real-time systems.",
-      "React": "Frontend development for interactive web applications.",
-      "DSP": "Digital Signal Processing techniques.",
-      "Filters": "Analog and digital filter design."
-    },
+    prompt: 'Hover or drag a data core to inspect its connections.',
+    domain: 'Core domain',
+    skill: 'Technical node',
     labels: {
-      "Computer Vision": "Computer Vision",
-      "Signal Processing": "Signal Processing",
-      "Software Eng.": "Software Eng.",
-      "AI & ML": "AI & ML",
-      "Novel View Synthesis": "Novel View Synthesis",
-      "3D Reconstruction": "3D Reconstruction",
-      "Feature Matching": "Feature Matching",
-      "NeRF": "NeRF",
-      "3DGS": "3DGS",
-      "PyTorch": "PyTorch",
-      "Python": "Python",
-      "C++": "C++",
-      "React": "React",
-      "DSP": "DSP",
-      "Filters": "Filters"
-    }
+      'Computer Vision': 'Computer Vision', 'Signal Processing': 'Signal Processing', 'Software Eng.': 'Software Eng.', 'AI & ML': 'AI & ML',
+      'Novel View Synthesis': 'Novel View Synthesis', '3D Reconstruction': '3D Reconstruction', 'Feature Matching': 'Feature Matching', NeRF: 'NeRF', '3DGS': '3DGS', PyTorch: 'PyTorch', Python: 'Python', 'C++': 'C++', React: 'React', DSP: 'DSP', Filters: 'Filters',
+    },
+    descriptions: {
+      'Computer Vision': 'Interpreting visual data through geometry, correspondence, and scene understanding.',
+      'Signal Processing': 'Analyzing and transforming analog, digital, and multimedia signals.',
+      'Software Eng.': 'Building efficient research pipelines and reliable real-time systems.',
+      'AI & ML': 'Applying learning-based representations to challenging visual problems.',
+      'Novel View Synthesis': 'Generating virtual camera views from sparse observations.',
+      '3D Reconstruction': 'Recovering spatial structure and geometry from 2D imagery.',
+      'Feature Matching': 'Robust correspondence estimation with KRAFT, SIFT, and related methods.',
+      NeRF: 'Neural radiance fields for continuous scene representation.',
+      '3DGS': 'Fast scene synthesis with differentiable Gaussian primitives.',
+      PyTorch: 'Research prototyping and training of deep neural networks.',
+      Python: 'Primary language for research, automation, and machine learning.',
+      'C++': 'High-performance implementation for real-time processing.',
+      React: 'Interactive research interfaces and visual tools.',
+      DSP: 'Digital signal analysis, transforms, and systems.',
+      Filters: 'Design and application of analog and digital filters.',
+    },
   },
   sk: {
-    hoverPrompt: "Prejdite myšou nad uzol pre zobrazenie detailov alebo potiahnite pre interakciu so sieťou.",
-    domain: "oblasť",
-    skill: "zručnosť",
-    nodes: {
-      "Computer Vision": "Hlavná odbornosť v analýze a porozumení vizuálnych dát.",
-      "Signal Processing": "Spracovanie a analýza analógových a digitálnych signálov.",
-      "Software Eng.": "Budovanie robustných, škálovateľných a efektívnych softvérových systémov.",
-      "AI & ML": "Aplikovanie modelov strojového učenia na riešenie zložitých problémov.",
-      "Novel View Synthesis": "Generovanie nových pohľadov na scénu z daného súboru obrázkov.",
-      "3D Reconstruction": "Rekonštrukcia 3D scén z 2D obrázkov.",
-      "Feature Matching": "Identifikácia zodpovedajúcich bodov naprieč rôznymi obrázkami (KRAFT, SIFT).",
-      "NeRF": "Neurónové polia žiarenia pre syntézu pohľadov.",
-      "3DGS": "3D Gaussian Splatting pre vykresľovanie v reálnom čase.",
-      "PyTorch": "Rámec pre hlboké učenie.",
-      "Python": "Hlavný programovací jazyk pre výskum a ML.",
-      "C++": "Vysokovýkonné výpočty a systémy v reálnom čase.",
-      "React": "Vývoj frontendu pre interaktívne webové aplikácie.",
-      "DSP": "Techniky digitálneho spracovania signálov.",
-      "Filters": "Návrh analógových a digitálnych filtrov."
-    },
+    prompt: 'Prejdite nad dátové jadro alebo ho potiahnite a preskúmajte jeho väzby.',
+    domain: 'Hlavná oblasť',
+    skill: 'Technický uzol',
     labels: {
-      "Computer Vision": "Počítačové videnie",
-      "Signal Processing": "Spracovanie signálov",
-      "Software Eng.": "Softvérové inž.",
-      "AI & ML": "UI a ML",
-      "Novel View Synthesis": "Syntéza nových pohľadov",
-      "3D Reconstruction": "3D Rekonštrukcia",
-      "Feature Matching": "Párovanie príznakov",
-      "NeRF": "NeRF",
-      "3DGS": "3DGS",
-      "PyTorch": "PyTorch",
-      "Python": "Python",
-      "C++": "C++",
-      "React": "React",
-      "DSP": "DSP",
-      "Filters": "Filtre"
-    }
-  }
-};
+      'Computer Vision': 'Počítačové videnie', 'Signal Processing': 'Spracovanie signálov', 'Software Eng.': 'Softvérové inž.', 'AI & ML': 'UI a ML',
+      'Novel View Synthesis': 'Syntéza nových pohľadov', '3D Reconstruction': '3D rekonštrukcia', 'Feature Matching': 'Párovanie príznakov', NeRF: 'NeRF', '3DGS': '3DGS', PyTorch: 'PyTorch', Python: 'Python', 'C++': 'C++', React: 'React', DSP: 'DSP', Filters: 'Filtre',
+    },
+    descriptions: {
+      'Computer Vision': 'Interpretácia vizuálnych dát pomocou geometrie, korešpondencie a porozumenia scéne.',
+      'Signal Processing': 'Analýza a transformácia analógových, digitálnych a multimediálnych signálov.',
+      'Software Eng.': 'Tvorba efektívnych výskumných riešení a spoľahlivých systémov v reálnom čase.',
+      'AI & ML': 'Využitie učených reprezentácií pri náročných vizuálnych problémoch.',
+      'Novel View Synthesis': 'Generovanie virtuálnych kamerových pohľadov z riedkych pozorovaní.',
+      '3D Reconstruction': 'Obnova priestorovej štruktúry a geometrie z 2D obrazov.',
+      'Feature Matching': 'Robustný odhad korešpondencie metódami KRAFT, SIFT a ďalšími.',
+      NeRF: 'Neurónové polia žiarenia pre spojitú reprezentáciu scény.',
+      '3DGS': 'Rýchla syntéza scén pomocou diferencovateľných gaussovských primitív.',
+      PyTorch: 'Prototypovanie a trénovanie hlbokých neurónových sietí.',
+      Python: 'Hlavný jazyk pre výskum, automatizáciu a strojové učenie.',
+      'C++': 'Vysokovýkonné implementácie pre spracovanie v reálnom čase.',
+      React: 'Interaktívne výskumné rozhrania a vizualizačné nástroje.',
+      DSP: 'Analýza digitálnych signálov, transformácie a systémy.',
+      Filters: 'Návrh a použitie analógových a digitálnych filtrov.',
+    },
+  },
+} as const;
 
-interface SkillNetworkProps {
-  lang: 'en' | 'sk';
-}
-
-export default function SkillNetwork({ lang }: SkillNetworkProps) {
-  const t = translations[lang];
+export default function SkillNetwork({ lang }: { lang: 'en' | 'sk' }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [hoveredNode, setHoveredNode] = useState<Node | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<NodeDatum | null>(null);
+  const t = translations[lang];
 
   useEffect(() => {
-    if (!svgRef.current || !containerRef.current) return;
+    const svgElement = svgRef.current;
+    const container = containerRef.current;
+    if (!svgElement || !container) return;
 
-    const width = containerRef.current.clientWidth;
-    const height = containerRef.current.clientHeight;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    const compact = width < 620;
+    const svg = d3.select(svgElement).attr('width', width).attr('height', height);
+    svg.selectAll('*').remove();
 
-    const svg = d3.select(svgRef.current)
-      .attr('width', width)
-      .attr('height', height);
+    const graphNodes = nodes.map((node) => ({ ...node, radius: compact ? node.radius * 0.8 : node.radius }));
+    const graphLinks = links.map((link) => ({ ...link }));
+    const defs = svg.append('defs');
+    const gradient = defs.append('linearGradient').attr('id', 'network-link-gradient').attr('x1', '0%').attr('x2', '100%');
+    gradient.append('stop').attr('offset', '0%').attr('stop-color', '#5b21b6');
+    gradient.append('stop').attr('offset', '52%').attr('stop-color', '#22d3ee');
+    gradient.append('stop').attr('offset', '100%').attr('stop-color', '#7c3aed');
+    const glow = defs.append('filter').attr('id', 'network-core-glow').attr('x', '-100%').attr('y', '-100%').attr('width', '300%').attr('height', '300%');
+    glow.append('feGaussianBlur').attr('stdDeviation', '4').attr('result', 'blur');
+    const merge = glow.append('feMerge');
+    merge.append('feMergeNode').attr('in', 'blur');
+    merge.append('feMergeNode').attr('in', 'SourceGraphic');
 
-    svg.selectAll('*').remove(); // Clear previous render
-
-    // Create a copy of the data to avoid mutating the original
-    const nodes = data.nodes.map(d => ({ ...d })) as Node[];
-    const links = data.links.map(d => ({ ...d })) as Link[];
-
-    const simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(links).id((d: any) => d.id).distance(80))
-      .force('charge', d3.forceManyBody().strength(-300))
+    const simulation = d3.forceSimulation(graphNodes)
+      .force('link', d3.forceLink<NodeDatum, LinkDatum>(graphLinks).id((node) => node.id).distance(compact ? 62 : 88).strength(0.72))
+      .force('charge', d3.forceManyBody().strength(compact ? -170 : -280))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collide', d3.forceCollide().radius((d: any) => d.radius + 10));
+      .force('collide', d3.forceCollide<NodeDatum>().radius((node) => node.radius + (compact ? 13 : 24)));
 
-    // Draw links
-    const link = svg.append('g')
-      .selectAll('line')
-      .data(links)
-      .join('line')
-      .attr('stroke', 'rgba(156, 163, 175, 0.3)') // gray-400 with opacity
-      .attr('stroke-width', d => Math.sqrt(d.value));
+    const link = svg.append('g').attr('class', 'network-links')
+      .selectAll('line').data(graphLinks).join('line')
+      .attr('stroke', 'url(#network-link-gradient)')
+      .attr('stroke-width', (datum) => Math.max(0.8, datum.value * 0.7))
+      .attr('stroke-opacity', 0.36)
+      .attr('stroke-dasharray', (datum) => datum.value === 1 ? '3 7' : '5 8');
 
-    // Draw nodes
-    const node = svg.append('g')
-      .selectAll('g')
-      .data(nodes)
-      .join('g')
-      .call(d3.drag<any, any>()
-        .on('start', dragstarted)
-        .on('drag', dragged)
-        .on('end', dragended)
-      );
+    const node = svg.append('g').attr('class', 'network-nodes')
+      .selectAll<SVGGElement, NodeDatum>('g').data(graphNodes).join('g')
+      .attr('class', (datum) => `network-node network-node--${datum.group}`)
+      .style('cursor', 'grab')
+      .call(d3.drag<SVGGElement, NodeDatum>()
+        .on('start', (event) => {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          event.subject.fx = event.subject.x;
+          event.subject.fy = event.subject.y;
+        })
+        .on('drag', (event) => {
+          event.subject.fx = event.x;
+          event.subject.fy = event.y;
+        })
+        .on('end', (event) => {
+          if (!event.active) simulation.alphaTarget(0);
+          event.subject.fx = null;
+          event.subject.fy = null;
+        }));
 
-    // Node circles
     node.append('circle')
-      .attr('r', d => d.radius)
-      .attr('fill', d => d.group === 'domain' ? '#a855f7' : '#06b6d4') // purple-500 : cyan-500
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 2)
-      .attr('class', 'cursor-pointer transition-all duration-300')
-      .on('mouseover', (event, d) => {
-        setHoveredNode(d);
-        d3.select(event.currentTarget).attr('stroke', '#f472b6').attr('stroke-width', 4); // pink-400
-        
-        // Highlight connected links
-        link.attr('stroke', l => (l.source === d || l.target === d) ? '#f472b6' : 'rgba(156, 163, 175, 0.1)')
-            .attr('stroke-width', l => (l.source === d || l.target === d) ? 2 : 1);
+      .attr('class', 'network-node__pulse')
+      .attr('r', (datum) => datum.radius + 7)
+      .attr('fill', 'none')
+      .attr('stroke', (datum) => datum.group === 'domain' ? '#a78bfa' : '#22d3ee')
+      .attr('stroke-width', 0.8)
+      .attr('stroke-opacity', 0.24);
+
+    node.append('circle')
+      .attr('class', 'network-node__core')
+      .attr('r', (datum) => datum.radius)
+      .attr('fill', (datum) => datum.group === 'domain' ? 'rgba(124,58,237,.72)' : 'rgba(6,182,212,.72)')
+      .attr('stroke', (datum) => datum.group === 'domain' ? '#c4b5fd' : '#67e8f9')
+      .attr('stroke-width', 1.2)
+      .attr('filter', 'url(#network-core-glow)')
+      .on('pointerenter', (event, datum) => {
+        setHoveredNode(datum);
+        d3.select(event.currentTarget).transition().duration(180).attr('r', datum.radius * 1.16).attr('stroke-width', 2.5);
+        link.attr('stroke-opacity', (item) => item.source === datum || item.target === datum ? 0.95 : 0.06)
+          .attr('stroke-width', (item) => item.source === datum || item.target === datum ? 2.4 : 0.7);
       })
-      .on('mouseout', (event) => {
+      .on('pointerleave', (event, datum) => {
         setHoveredNode(null);
-        d3.select(event.currentTarget).attr('stroke', '#fff').attr('stroke-width', 2);
-        link.attr('stroke', 'rgba(156, 163, 175, 0.3)').attr('stroke-width', d => Math.sqrt(d.value));
+        d3.select(event.currentTarget).transition().duration(220).attr('r', datum.radius).attr('stroke-width', 1.2);
+        link.attr('stroke-opacity', 0.36).attr('stroke-width', (item) => Math.max(0.8, item.value * 0.7));
       });
 
-    // Node labels
+    node.append('circle').attr('r', (datum) => Math.max(2.3, datum.radius * 0.17)).attr('fill', '#e6fbff').attr('pointer-events', 'none');
     node.append('text')
-      .text(d => t.labels[d.id as keyof typeof t.labels] || d.id)
-      .attr('x', 0)
-      .attr('y', d => d.radius + 15)
+      .text((datum) => t.labels[datum.id as keyof typeof t.labels] ?? datum.id)
+      .attr('y', (datum) => datum.radius + (compact ? 13 : 17))
       .attr('text-anchor', 'middle')
-      .attr('fill', 'currentColor')
-      .attr('class', 'text-xs font-semibold pointer-events-none fill-gray-700 dark:fill-gray-300');
+      .attr('class', 'network-node__label')
+      .attr('pointer-events', 'none');
 
     simulation.on('tick', () => {
+      graphNodes.forEach((datum) => {
+        datum.x = Math.max(datum.radius + 58, Math.min(width - datum.radius - 58, datum.x ?? width / 2));
+        datum.y = Math.max(datum.radius + 18, Math.min(height - datum.radius - 28, datum.y ?? height / 2));
+      });
       link
-        .attr('x1', d => (d.source as Node).x!)
-        .attr('y1', d => (d.source as Node).y!)
-        .attr('x2', d => (d.target as Node).x!)
-        .attr('y2', d => (d.target as Node).y!);
-
-      node
-        .attr('transform', d => `translate(${d.x},${d.y})`);
+        .attr('x1', (datum) => (datum.source as NodeDatum).x ?? 0)
+        .attr('y1', (datum) => (datum.source as NodeDatum).y ?? 0)
+        .attr('x2', (datum) => (datum.target as NodeDatum).x ?? 0)
+        .attr('y2', (datum) => (datum.target as NodeDatum).y ?? 0);
+      node.attr('transform', (datum) => `translate(${datum.x ?? 0},${datum.y ?? 0})`);
     });
 
-    function dragstarted(event: any) {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      event.subject.fx = event.subject.x;
-      event.subject.fy = event.subject.y;
-    }
+    const observer = new ResizeObserver(() => {
+      const nextWidth = container.clientWidth;
+      const nextHeight = container.clientHeight;
+      svg.attr('width', nextWidth).attr('height', nextHeight);
+      simulation.force('center', d3.forceCenter(nextWidth / 2, nextHeight / 2)).alpha(0.2).restart();
+    });
+    observer.observe(container);
 
-    function dragged(event: any) {
-      event.subject.fx = event.x;
-      event.subject.fy = event.y;
-    }
-
-    function dragended(event: any) {
-      if (!event.active) simulation.alphaTarget(0);
-      event.subject.fx = null;
-      event.subject.fy = null;
-    }
-
-    // Handle resize
-    const handleResize = () => {
-      if (!containerRef.current) return;
-      const newWidth = containerRef.current.clientWidth;
-      const newHeight = containerRef.current.clientHeight;
-      svg.attr('width', newWidth).attr('height', newHeight);
-      simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
-      simulation.alpha(0.3).restart();
-    };
-
-    window.addEventListener('resize', handleResize);
     return () => {
-      window.removeEventListener('resize', handleResize);
+      observer.disconnect();
       simulation.stop();
     };
-  }, []);
+  }, [lang, t.descriptions, t.labels]);
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center">
-      <div ref={containerRef} className="w-full h-[350px] md:h-[450px] bg-gray-50/50 dark:bg-black/20 rounded-2xl border border-gray-200 dark:border-white/5 overflow-hidden">
-        <svg ref={svgRef} className="w-full h-full" />
+    <div className="skill-network">
+      <div ref={containerRef} className="skill-network__viewport">
+        <div className="skill-network__grid" aria-hidden="true" />
+        <svg ref={svgRef} role="img" aria-label="Interactive skill network" />
+        <span className="skill-network__readout">FORCE_GRAPH / 15 NODES / 17 LINKS</span>
       </div>
-      
-      {/* Tooltip / Info Panel */}
-      <div className="mt-4 h-20 w-full flex items-center justify-center text-center px-4">
-        {hoveredNode ? (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 w-full max-w-lg"
-          >
-            <h4 className="font-bold text-gray-900 dark:text-white mb-1">
-              {t.labels[hoveredNode.id as keyof typeof t.labels] || hoveredNode.id} <span className="text-xs font-normal text-gray-500 dark:text-gray-400 uppercase ml-2 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full">{t[hoveredNode.group as 'domain' | 'skill'] || hoveredNode.group}</span>
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-300">{t.nodes[hoveredNode.id as keyof typeof t.nodes] || hoveredNode.description}</p>
-          </motion.div>
-        ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-            {t.hoverPrompt}
-          </p>
-        )}
+      <div className="skill-network__info" aria-live="polite">
+        <AnimatePresence mode="wait">
+          {hoveredNode ? (
+            <motion.div key={hoveredNode.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}>
+              <span>{hoveredNode.group === 'domain' ? t.domain : t.skill}</span>
+              <strong>{t.labels[hoveredNode.id as keyof typeof t.labels]}</strong>
+              <p>{t.descriptions[hoveredNode.id as keyof typeof t.descriptions]}</p>
+            </motion.div>
+          ) : (
+            <motion.p key="prompt" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{t.prompt}</motion.p>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

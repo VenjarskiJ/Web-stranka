@@ -1,64 +1,282 @@
-import React, { useEffect, useRef } from 'react';
-import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Float } from '@react-three/drei';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { useEffect, useMemo, useRef } from 'react';
+import * as THREE from 'three';
 
-export default function Profile3D() {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const cardRef = useRef<HTMLDivElement>(null);
+const PROFILE_IMAGE =
+  'https://i1.rgstatic.net/ii/profile.image/11431281728263101-1763171443560_Q512/Jaroslav-Venjarski.jpg';
 
-  const mouseXSpring = useSpring(x, { stiffness: 150, damping: 15 });
-  const mouseYSpring = useSpring(y, { stiffness: 150, damping: 15 });
+const scanVertex = /* glsl */ `
+  varying vec2 vUv;
+  uniform float uTime;
+  uniform float uVelocity;
 
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["15deg", "-15deg"]);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-15deg", "15deg"]);
+  void main() {
+    vUv = uv;
+    vec3 transformed = position;
+    float wave = sin((uv.y * 34.0) + uTime * 2.1) * 0.012;
+    transformed.z += wave + sin(uv.x * 18.0 + uTime) * 0.006;
+    transformed.x += sin(uv.y * 92.0 + uTime * 8.0) * uVelocity * 0.022;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
+  }
+`;
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!cardRef.current) return;
-      const rect = cardRef.current.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+const scanFragment = /* glsl */ `
+  varying vec2 vUv;
+  uniform float uTime;
+  uniform float uVelocity;
 
-      const xPct = (e.clientX - centerX) / window.innerWidth;
-      const yPct = (e.clientY - centerY) / window.innerHeight;
+  float noise(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+  }
 
-      x.set(xPct * 2.5);
-      y.set(yPct * 2.5);
-    };
+  void main() {
+    float edge = 1.0 - smoothstep(0.28, 0.49, max(abs(vUv.x - 0.5), abs(vUv.y - 0.5)));
+    float scan = 0.45 + 0.55 * sin(vUv.y * 720.0 - uTime * 14.0);
+    float glitchBand = step(0.965 - uVelocity * 0.15, noise(vec2(floor(vUv.y * 40.0), floor(uTime * 14.0))));
+    vec3 cyan = vec3(0.02, 0.92, 1.0);
+    vec3 violet = vec3(0.58, 0.24, 1.0);
+    vec3 color = mix(violet, cyan, vUv.y + sin(uTime) * 0.08);
+    float alpha = (0.035 + scan * 0.11 + glitchBand * uVelocity * 0.28) * edge;
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
 
-    const handleMouseLeave = () => {
-      x.set(0);
-      y.set(0);
-    };
+const pointVertex = /* glsl */ `
+  attribute float aPhase;
+  uniform float uTime;
+  varying float vAlpha;
 
-    window.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseleave', handleMouseLeave);
+  void main() {
+    vec3 p = position;
+    p.x += sin(uTime * 0.8 + aPhase * 8.0) * 0.035;
+    p.y += cos(uTime * 0.65 + aPhase * 7.0) * 0.03;
+    vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
+    gl_PointSize = (2.2 + sin(uTime * 2.0 + aPhase * 15.0) * 1.2) * (7.0 / -mvPosition.z);
+    gl_Position = projectionMatrix * mvPosition;
+    vAlpha = 0.34 + 0.66 * sin(aPhase * 18.0 + uTime * 1.5) * 0.5 + 0.5;
+  }
+`;
 
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, [x, y]);
+const pointFragment = /* glsl */ `
+  varying float vAlpha;
+  void main() {
+    float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+    float alpha = smoothstep(0.5, 0.05, distanceToCenter) * vAlpha;
+    vec3 color = mix(vec3(0.38, 0.18, 1.0), vec3(0.02, 0.95, 1.0), gl_PointCoord.y);
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+function HologramScene({ velocity }: { velocity: React.MutableRefObject<number> }) {
+  const group = useRef<THREE.Group>(null);
+  const scanMaterial = useRef<THREE.ShaderMaterial>(null);
+  const pointMaterial = useRef<THREE.ShaderMaterial>(null);
+
+  const particleGeometry = useMemo(() => {
+    const count = 620;
+    const positions = new Float32Array(count * 3);
+    const phases = new Float32Array(count);
+
+    for (let index = 0; index < count; index += 1) {
+      const side = index % 4;
+      const scatter = Math.pow(Math.random(), 2) * 0.58;
+      let x = 0;
+      let y = 0;
+
+      if (side < 2) {
+        x = (Math.random() - 0.5) * 3.38;
+        y = (side === 0 ? 1 : -1) * (2.12 + scatter);
+      } else {
+        x = (side === 2 ? 1 : -1) * (1.63 + scatter);
+        y = (Math.random() - 0.5) * 4.35;
+      }
+
+      positions[index * 3] = x;
+      positions[index * 3 + 1] = y;
+      positions[index * 3 + 2] = (Math.random() - 0.5) * 0.9;
+      phases[index] = Math.random();
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+    return geometry;
+  }, []);
+
+  useFrame((state, delta) => {
+    const time = state.clock.elapsedTime;
+    const easedVelocity = THREE.MathUtils.lerp(
+      scanMaterial.current?.uniforms.uVelocity.value ?? 0,
+      velocity.current,
+      Math.min(delta * 8, 1),
+    );
+
+    if (scanMaterial.current) {
+      scanMaterial.current.uniforms.uTime.value = time;
+      scanMaterial.current.uniforms.uVelocity.value = easedVelocity;
+    }
+    if (pointMaterial.current) pointMaterial.current.uniforms.uTime.value = time;
+    if (group.current) {
+      group.current.rotation.z = Math.sin(time * 0.34) * 0.008;
+      group.current.position.y = Math.sin(time * 0.62) * 0.035;
+    }
+    velocity.current = THREE.MathUtils.lerp(velocity.current, 0, Math.min(delta * 3.5, 1));
+  });
 
   return (
-    <div className="perspective-1000 w-full max-w-[280px] mx-auto" ref={cardRef}>
-      <motion.div
-        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        className="relative w-full aspect-[3/4] rounded-2xl cursor-pointer group"
-      >
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-purple-500/30 to-cyan-500/30 blur-2xl group-hover:blur-3xl transition-all duration-500" style={{ transform: "translateZ(-50px)" }}></div>
-        <div className="absolute inset-0 rounded-2xl border border-black/10 dark:border-white/20 overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-sm group-hover:border-purple-500/50 group-hover:shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all duration-500" style={{ transform: "translateZ(0px)" }}>
-          {/* The user's uploaded photo */}
-          <img 
-            src="https://i1.rgstatic.net/ii/profile.image/11431281728263101-1763171443560_Q512/Jaroslav-Venjarski.jpg" 
-            referrerPolicy="no-referrer"
-            onError={(e) => {
-              e.currentTarget.src = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80";
-            }}
-            alt="Jaroslav Venjarski" 
-            className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 ease-out" 
+    <group ref={group}>
+      <Float speed={1.35} rotationIntensity={0.06} floatIntensity={0.12}>
+        <mesh position={[0, 0, 0.12]}>
+          <planeGeometry args={[3.24, 4.3, 40, 48]} />
+          <shaderMaterial
+            ref={scanMaterial}
+            vertexShader={scanVertex}
+            fragmentShader={scanFragment}
+            uniforms={{ uTime: { value: 0 }, uVelocity: { value: 0 } }}
+            transparent
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/80 dark:from-black/60 via-transparent to-transparent"></div>
+        </mesh>
+
+        <points geometry={particleGeometry}>
+          <shaderMaterial
+            ref={pointMaterial}
+            vertexShader={pointVertex}
+            fragmentShader={pointFragment}
+            uniforms={{ uTime: { value: 0 } }}
+            transparent
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </points>
+
+        <mesh position={[0, -2.31, -0.18]} rotation={[0, 0, Math.PI / 4]}>
+          <boxGeometry args={[2.34, 2.34, 0.015]} />
+          <meshBasicMaterial color="#4de9ff" wireframe transparent opacity={0.1} />
+        </mesh>
+
+        {[-0.82, 0, 0.82].map((x, index) => (
+          <mesh key={x} position={[x, -2.58, -0.4]} rotation={[Math.PI, 0, 0]}>
+            <coneGeometry args={[0.42 + index * 0.04, 2.6, 32, 1, true]} />
+            <meshBasicMaterial
+              color={index === 1 ? '#a855f7' : '#22d3ee'}
+              transparent
+              opacity={0.025}
+              side={THREE.DoubleSide}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        ))}
+      </Float>
+    </group>
+  );
+}
+
+export default function Profile3D() {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const lastPointer = useRef({ x: 0, y: 0, at: performance.now() });
+  const velocity = useRef(0);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const glitch = useMotionValue(0);
+  const springX = useSpring(x, { stiffness: 130, damping: 18, mass: 0.55 });
+  const springY = useSpring(y, { stiffness: 130, damping: 18, mass: 0.55 });
+  const rotateX = useTransform(springY, [-1, 1], ['8deg', '-8deg']);
+  const rotateY = useTransform(springX, [-1, 1], ['-10deg', '10deg']);
+  const translateXRed = useTransform(glitch, [0, 1], [0, 8]);
+  const translateXBlue = useTransform(glitch, [0, 1], [0, -8]);
+  const glitchOpacity = useTransform(glitch, [0, 0.15, 1], [0, 0.12, 0.38]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const rect = cardRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const normalizedX = THREE.MathUtils.clamp((event.clientX - rect.left) / rect.width * 2 - 1, -1, 1);
+      const normalizedY = THREE.MathUtils.clamp((event.clientY - rect.top) / rect.height * 2 - 1, -1, 1);
+      x.set(normalizedX);
+      y.set(normalizedY);
+
+      const now = performance.now();
+      const elapsed = Math.max(now - lastPointer.current.at, 16);
+      const distance = Math.hypot(event.clientX - lastPointer.current.x, event.clientY - lastPointer.current.y);
+      const speed = THREE.MathUtils.clamp(distance / elapsed / 1.4, 0, 1);
+      velocity.current = Math.max(velocity.current, speed);
+      glitch.set(speed);
+      lastPointer.current = { x: event.clientX, y: event.clientY, at: now };
+    };
+
+    const reset = () => {
+      x.set(0);
+      y.set(0);
+      glitch.set(0);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    document.addEventListener('pointerleave', reset);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerleave', reset);
+    };
+  }, [glitch, x, y]);
+
+  return (
+    <div ref={cardRef} className="profile-hologram" aria-label="Interactive holographic portrait of Jaroslav Venjarski">
+      <motion.div
+        className="profile-hologram__stage"
+        style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
+      >
+        <div className="profile-hologram__halo" />
+        <div className="profile-hologram__frame">
+          <div className="profile-hologram__fallback" aria-hidden="true">JV</div>
+          <img
+            src={PROFILE_IMAGE}
+            alt="Jaroslav Venjarski"
+            referrerPolicy="no-referrer"
+            className="profile-hologram__image"
+            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+          />
+          <motion.img
+            aria-hidden="true"
+            src={PROFILE_IMAGE}
+            referrerPolicy="no-referrer"
+            className="profile-hologram__image profile-hologram__image--red"
+            style={{ x: translateXRed, opacity: glitchOpacity }}
+            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+          />
+          <motion.img
+            aria-hidden="true"
+            src={PROFILE_IMAGE}
+            referrerPolicy="no-referrer"
+            className="profile-hologram__image profile-hologram__image--blue"
+            style={{ x: translateXBlue, opacity: glitchOpacity }}
+            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+          />
+          <div className="profile-hologram__grade" />
+          <div className="profile-hologram__sweep" />
+        </div>
+
+        <div className="profile-hologram__canvas" aria-hidden="true">
+          <Canvas
+            dpr={[0.75, 1.35]}
+            camera={{ position: [0, 0, 7.1], fov: 40 }}
+            gl={{ alpha: true, antialias: false, powerPreference: 'high-performance' }}
+          >
+            <HologramScene velocity={velocity} />
+          </Canvas>
+        </div>
+
+        <div className="profile-hologram__hud profile-hologram__hud--top">
+          <span>SPATIAL ID / JV-03</span>
+          <span className="status-dot">LIVE</span>
+        </div>
+        <div className="profile-hologram__hud profile-hologram__hud--bottom">
+          <span>DEPTH LOCK</span>
+          <span>98.9%</span>
         </div>
       </motion.div>
     </div>
