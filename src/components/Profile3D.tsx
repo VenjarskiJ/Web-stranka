@@ -1,189 +1,159 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Float } from '@react-three/drei';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type KeyboardEvent,
+  type MutableRefObject,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import * as THREE from 'three';
 
-const AVATAR_FRAME_COUNT = 32;
-const AVATAR_SIDE_RANGE = 8;
+const AVATAR_URL = './avatar/avatar-hull.bin';
+const MAX_YAW = Math.PI * 0.46;
 
-const avatarFrame = (index: number) => {
-  const normalized = ((index % AVATAR_FRAME_COUNT) + AVATAR_FRAME_COUNT) % AVATAR_FRAME_COUNT;
-  return `./avatar/view-${String(normalized).padStart(2, '0')}.webp`;
+type AvatarGeometryState = {
+  geometry: THREE.BufferGeometry | null;
+  failed: boolean;
 };
 
-const scanVertex = /* glsl */ `
-  varying vec2 vUv;
-  uniform float uTime;
-  uniform float uVelocity;
+function useAvatarGeometry(): AvatarGeometryState {
+  const [buffer, setBuffer] = useState<ArrayBuffer | null>(null);
+  const [failed, setFailed] = useState(false);
 
-  void main() {
-    vUv = uv;
-    vec3 transformed = position;
-    float wave = sin((uv.y * 34.0) + uTime * 2.1) * 0.012;
-    transformed.z += wave + sin(uv.x * 18.0 + uTime) * 0.006;
-    transformed.x += sin(uv.y * 92.0 + uTime * 8.0) * uVelocity * 0.022;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
-  }
-`;
+  useEffect(() => {
+    const controller = new AbortController();
 
-const scanFragment = /* glsl */ `
-  varying vec2 vUv;
-  uniform float uTime;
-  uniform float uVelocity;
+    fetch(AVATAR_URL, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Avatar request failed: ${response.status}`);
+        return response.arrayBuffer();
+      })
+      .then(setBuffer)
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) setFailed(true);
+      });
 
-  float noise(vec2 p) {
-    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-  }
-
-  void main() {
-    float edge = 1.0 - smoothstep(0.28, 0.49, max(abs(vUv.x - 0.5), abs(vUv.y - 0.5)));
-    float scan = 0.45 + 0.55 * sin(vUv.y * 720.0 - uTime * 14.0);
-    float glitchBand = step(0.965 - uVelocity * 0.15, noise(vec2(floor(vUv.y * 40.0), floor(uTime * 14.0))));
-    vec3 cyan = vec3(0.02, 0.94, 1.0);
-    vec3 violet = vec3(0.62, 0.20, 1.0);
-    vec3 magenta = vec3(1.0, 0.12, 0.58);
-    vec3 color = mix(violet, cyan, vUv.y + sin(uTime) * 0.08);
-    color = mix(color, magenta, glitchBand * (0.28 + uVelocity * 0.5));
-    float alpha = (0.055 + scan * 0.15 + glitchBand * (0.12 + uVelocity * 0.34)) * edge;
-    gl_FragColor = vec4(color, alpha);
-  }
-`;
-
-const pointVertex = /* glsl */ `
-  attribute float aPhase;
-  uniform float uTime;
-  varying float vAlpha;
-
-  void main() {
-    vec3 p = position;
-    p.x += sin(uTime * 0.8 + aPhase * 8.0) * 0.035;
-    p.y += cos(uTime * 0.65 + aPhase * 7.0) * 0.03;
-    vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
-    gl_PointSize = (2.2 + sin(uTime * 2.0 + aPhase * 15.0) * 1.2) * (7.0 / -mvPosition.z);
-    gl_Position = projectionMatrix * mvPosition;
-    vAlpha = 0.34 + 0.66 * sin(aPhase * 18.0 + uTime * 1.5) * 0.5 + 0.5;
-  }
-`;
-
-const pointFragment = /* glsl */ `
-  varying float vAlpha;
-  void main() {
-    float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-    float alpha = smoothstep(0.5, 0.05, distanceToCenter) * vAlpha;
-    vec3 violet = vec3(0.44, 0.16, 1.0);
-    vec3 cyan = vec3(0.02, 0.96, 1.0);
-    vec3 magenta = vec3(1.0, 0.18, 0.62);
-    vec3 color = mix(violet, cyan, gl_PointCoord.y);
-    color = mix(color, magenta, smoothstep(0.58, 1.0, gl_PointCoord.x) * 0.55);
-    gl_FragColor = vec4(color, alpha);
-  }
-`;
-
-function HologramScene({ velocity }: { velocity: React.MutableRefObject<number> }) {
-  const group = useRef<THREE.Group>(null);
-  const scanMaterial = useRef<THREE.ShaderMaterial>(null);
-  const pointMaterial = useRef<THREE.ShaderMaterial>(null);
-
-  const particleGeometry = useMemo(() => {
-    const count = 820;
-    const positions = new Float32Array(count * 3);
-    const phases = new Float32Array(count);
-
-    for (let index = 0; index < count; index += 1) {
-      const side = index % 4;
-      const scatter = Math.pow(Math.random(), 2) * 0.58;
-      let x = 0;
-      let y = 0;
-
-      if (side < 2) {
-        x = (Math.random() - 0.5) * 3.38;
-        y = (side === 0 ? 1 : -1) * (2.12 + scatter);
-      } else {
-        x = (side === 2 ? 1 : -1) * (1.63 + scatter);
-        y = (Math.random() - 0.5) * 4.35;
-      }
-
-      positions[index * 3] = x;
-      positions[index * 3 + 1] = y;
-      positions[index * 3 + 2] = (Math.random() - 0.5) * 0.9;
-      phases[index] = Math.random();
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
-    return geometry;
+    return () => controller.abort();
   }, []);
+
+  const geometry = useMemo(() => {
+    if (!buffer) return null;
+
+    const view = new DataView(buffer);
+    const count = view.getUint32(0, true);
+    const positionBytes = count * 3 * Float32Array.BYTES_PER_ELEMENT;
+    const colorOffset = 4 + positionBytes;
+    if (colorOffset + count * 3 > buffer.byteLength) return null;
+
+    const positions = new Float32Array(buffer.slice(4, colorOffset));
+    const colors = new Uint8Array(buffer.slice(colorOffset, colorOffset + count * 3));
+    const nextGeometry = new THREE.BufferGeometry();
+    nextGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    nextGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3, true));
+    nextGeometry.computeBoundingSphere();
+    return nextGeometry;
+  }, [buffer]);
+
+  useEffect(() => () => geometry?.dispose(), [geometry]);
+
+  return { geometry, failed };
+}
+
+type AvatarSceneProps = {
+  theme: 'dark' | 'light';
+  targetYaw: MutableRefObject<number>;
+  targetPitch: MutableRefObject<number>;
+  velocity: MutableRefObject<number>;
+  interacting: MutableRefObject<boolean>;
+  reducedMotion: boolean;
+};
+
+function AvatarScene({ theme, targetYaw, targetPitch, velocity, interacting, reducedMotion }: AvatarSceneProps) {
+  const { geometry } = useAvatarGeometry();
+  const avatar = useRef<THREE.Group>(null);
+  const orbit = useRef<THREE.Group>(null);
 
   useFrame((state, delta) => {
     const time = state.clock.elapsedTime;
-    const easedVelocity = THREE.MathUtils.lerp(
-      scanMaterial.current?.uniforms.uVelocity.value ?? 0,
-      velocity.current,
-      Math.min(delta * 8, 1),
-    );
 
-    if (scanMaterial.current) {
-      scanMaterial.current.uniforms.uTime.value = time;
-      scanMaterial.current.uniforms.uVelocity.value = easedVelocity;
+    if (avatar.current) {
+      const idle = !interacting.current && !reducedMotion ? Math.sin(time * 0.34) * 0.075 : 0;
+      avatar.current.rotation.y = THREE.MathUtils.lerp(
+        avatar.current.rotation.y,
+        targetYaw.current + idle,
+        Math.min(delta * 6.5, 1),
+      );
+      avatar.current.rotation.x = THREE.MathUtils.lerp(
+        avatar.current.rotation.x,
+        targetPitch.current,
+        Math.min(delta * 6.5, 1),
+      );
+      avatar.current.position.x = reducedMotion ? 0 : Math.sin(time * 46.0) * velocity.current * 0.018;
+      avatar.current.position.y = -0.02 + (reducedMotion ? 0 : Math.sin(time * 0.62) * 0.018);
     }
-    if (pointMaterial.current) pointMaterial.current.uniforms.uTime.value = time;
-    if (group.current) {
-      group.current.rotation.z = Math.sin(time * 0.34) * 0.008;
-      group.current.position.y = Math.sin(time * 0.62) * 0.035;
+
+    if (orbit.current && !reducedMotion) {
+      orbit.current.rotation.y = time * 0.08;
+      orbit.current.rotation.z = Math.sin(time * 0.23) * 0.08;
     }
-    velocity.current = THREE.MathUtils.lerp(velocity.current, 0, Math.min(delta * 3.5, 1));
+
+    velocity.current = THREE.MathUtils.lerp(velocity.current, 0, Math.min(delta * 3.4, 1));
   });
 
   return (
-    <group ref={group}>
-      <Float speed={1.35} rotationIntensity={0.06} floatIntensity={0.12}>
-        <mesh position={[0, 0, 0.12]}>
-          <planeGeometry args={[3.24, 4.3, 40, 48]} />
-          <shaderMaterial
-            ref={scanMaterial}
-            vertexShader={scanVertex}
-            fragmentShader={scanFragment}
-            uniforms={{ uTime: { value: 0 }, uVelocity: { value: 0 } }}
-            transparent
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
+    <>
+      <group ref={avatar} scale={1.06}>
+        {geometry ? (
+          <>
+            <points geometry={geometry} frustumCulled={false}>
+              <pointsMaterial
+                color={theme === 'dark' ? '#ffffff' : '#5c7f88'}
+                size={theme === 'dark' ? 0.011 : 0.013}
+                sizeAttenuation
+                vertexColors
+                opacity={theme === 'dark' ? 0.88 : 1}
+                depthWrite
+                blending={THREE.NormalBlending}
+              />
+            </points>
+            <points geometry={geometry} frustumCulled={false}>
+              <pointsMaterial
+                color={theme === 'dark' ? '#41edff' : '#2a99b4'}
+                size={theme === 'dark' ? 0.007 : 0.009}
+                sizeAttenuation
+                transparent
+                opacity={theme === 'dark' ? 0.1 : 0.28}
+                depthWrite={false}
+                blending={THREE.AdditiveBlending}
+              />
+            </points>
+          </>
+        ) : null}
+      </group>
+
+      <group ref={orbit} position={[0, 0.08, -0.35]}>
+        <mesh rotation={[Math.PI / 2.34, 0.2, 0.32]}>
+          <torusGeometry args={[1.58, 0.006, 4, 160]} />
+          <meshBasicMaterial color="#38e8ff" transparent opacity={theme === 'dark' ? 0.28 : 0.12} />
         </mesh>
-
-        <points geometry={particleGeometry}>
-          <shaderMaterial
-            ref={pointMaterial}
-            vertexShader={pointVertex}
-            fragmentShader={pointFragment}
-            uniforms={{ uTime: { value: 0 } }}
-            transparent
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </points>
-
-        <mesh position={[0, -2.31, -0.18]} rotation={[0, 0, Math.PI / 4]}>
-          <boxGeometry args={[2.34, 2.34, 0.015]} />
-          <meshBasicMaterial color="#4de9ff" wireframe transparent opacity={0.1} />
+        <mesh rotation={[Math.PI / 2.08, 0.84, -0.46]}>
+          <torusGeometry args={[1.78, 0.004, 4, 160]} />
+          <meshBasicMaterial color="#a855f7" transparent opacity={theme === 'dark' ? 0.18 : 0.08} />
         </mesh>
+      </group>
 
-        {[-0.82, 0, 0.82].map((x, index) => (
-          <mesh key={x} position={[x, -2.58, -0.4]} rotation={[Math.PI, 0, 0]}>
-            <coneGeometry args={[0.42 + index * 0.04, 2.6, 32, 1, true]} />
-            <meshBasicMaterial
-              color={index === 1 ? '#a855f7' : '#22d3ee'}
-              transparent
-              opacity={0.025}
-              side={THREE.DoubleSide}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-            />
-          </mesh>
-        ))}
-      </Float>
-    </group>
+      <mesh position={[0, -1.58, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.62, 1.38, 96]} />
+        <meshBasicMaterial
+          color={theme === 'dark' ? '#37e9ff' : '#198ba5'}
+          transparent
+          opacity={theme === 'dark' ? 0.13 : 0.08}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </>
   );
 }
 
@@ -192,174 +162,134 @@ type Profile3DProps = {
 };
 
 export default function Profile3D({ theme }: Profile3DProps) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const resetTimer = useRef<number | undefined>(undefined);
-  const lastPointer = useRef({ x: 0, y: 0, at: performance.now() });
+  const root = useRef<HTMLDivElement>(null);
+  const targetYaw = useRef(0);
+  const targetPitch = useRef(0);
   const velocity = useRef(0);
-  const [currentFrame, setCurrentFrame] = useState(0);
+  const interacting = useRef(false);
+  const drag = useRef({ active: false, startX: 0, startYaw: 0 });
+  const pointer = useRef({ x: 0, y: 0, at: performance.now() });
+  const [angle, setAngle] = useState(0);
   const [isInteracting, setIsInteracting] = useState(false);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const glitch = useMotionValue(0);
-  const springX = useSpring(x, { stiffness: 150, damping: 23, mass: 0.55 });
-  const springY = useSpring(y, { stiffness: 150, damping: 23, mass: 0.55 });
-  const rotateX = useTransform(springY, [-1, 1], ['2.8deg', '-2.8deg']);
-  const rotateY = useTransform(springX, [-1, 1], ['-4deg', '4deg']);
-  const translateXRed = useTransform(glitch, [0, 1], [0, 10]);
-  const translateXBlue = useTransform(glitch, [0, 1], [0, -10]);
-  const glitchOpacity = useTransform(glitch, [0, 0.15, 1], [0.025, 0.13, 0.42]);
-  const currentSource = avatarFrame(currentFrame);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
-    const preload = () => {
-      Array.from({ length: AVATAR_FRAME_COUNT }, (_, index) => index).forEach((index) => {
-        const image = new Image();
-        image.decoding = 'async';
-        image.src = avatarFrame(index);
-      });
-    };
-
-    const timer = window.setTimeout(preload, 250);
-    return () => window.clearTimeout(timer);
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReducedMotion(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
   }, []);
 
-  useEffect(() => () => window.clearTimeout(resetTimer.current), []);
+  const setYaw = (next: number) => {
+    const clamped = THREE.MathUtils.clamp(next, -MAX_YAW, MAX_YAW);
+    targetYaw.current = clamped;
+    setAngle(Math.round(THREE.MathUtils.radToDeg(clamped)));
+  };
 
-  const updateFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const rect = cardRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    window.clearTimeout(resetTimer.current);
-    const normalizedX = THREE.MathUtils.clamp(((event.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
-    const normalizedY = THREE.MathUtils.clamp(((event.clientY - rect.top) / rect.height) * 2 - 1, -1, 1);
-    const signedFrame = Math.round(normalizedX * AVATAR_SIDE_RANGE);
-    setCurrentFrame((signedFrame + AVATAR_FRAME_COUNT) % AVATAR_FRAME_COUNT);
-    x.set(normalizedX);
-    y.set(normalizedY);
-
+  const updateVelocity = (event: ReactPointerEvent<HTMLDivElement>) => {
     const now = performance.now();
-    const elapsed = Math.max(now - lastPointer.current.at, 16);
-    const distance = Math.hypot(event.clientX - lastPointer.current.x, event.clientY - lastPointer.current.y);
-    const speed = THREE.MathUtils.clamp(distance / elapsed / 1.4, 0, 1);
-    velocity.current = Math.max(velocity.current, speed);
-    glitch.set(speed);
-    lastPointer.current = { x: event.clientX, y: event.clientY, at: now };
+    const elapsed = Math.max(now - pointer.current.at, 16);
+    const distance = Math.hypot(event.clientX - pointer.current.x, event.clientY - pointer.current.y);
+    velocity.current = Math.max(velocity.current, THREE.MathUtils.clamp(distance / elapsed / 1.5, 0, 1));
+    pointer.current = { x: event.clientX, y: event.clientY, at: now };
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const bounds = root.current?.getBoundingClientRect();
+    if (!bounds) return;
+    updateVelocity(event);
+
+    if (drag.current.active) {
+      const delta = (event.clientX - drag.current.startX) / bounds.width;
+      setYaw(drag.current.startYaw + delta * Math.PI * 1.55);
+    } else {
+      const normalizedX = THREE.MathUtils.clamp(((event.clientX - bounds.left) / bounds.width) * 2 - 1, -1, 1);
+      setYaw(normalizedX * 0.72);
+    }
+
+    const normalizedY = THREE.MathUtils.clamp(((event.clientY - bounds.top) / bounds.height) * 2 - 1, -1, 1);
+    targetPitch.current = normalizedY * 0.055;
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    cardRef.current?.setPointerCapture(event.pointerId);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { active: true, startX: event.clientX, startYaw: targetYaw.current };
+    interacting.current = true;
     setIsInteracting(true);
-    updateFromPointer(event);
+    handlePointerMove(event);
+  };
+
+  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    drag.current.active = false;
+    interacting.current = false;
+    setIsInteracting(false);
   };
 
   const handlePointerLeave = () => {
+    if (drag.current.active) return;
+    interacting.current = false;
     setIsInteracting(false);
-    x.set(0);
-    y.set(0);
-    glitch.set(0);
-    resetTimer.current = window.setTimeout(() => setCurrentFrame(0), 420);
+    targetPitch.current = 0;
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home') return;
+    if (!['ArrowLeft', 'ArrowRight', 'Home'].includes(event.key)) return;
     event.preventDefault();
-    if (event.key === 'Home') {
-      setCurrentFrame(0);
-      return;
-    }
-    setCurrentFrame((frame) => (
-      event.key === 'ArrowRight'
-        ? (frame + 1) % AVATAR_FRAME_COUNT
-        : (frame - 1 + AVATAR_FRAME_COUNT) % AVATAR_FRAME_COUNT
-    ));
+    if (event.key === 'Home') setYaw(0);
+    else setYaw(targetYaw.current + (event.key === 'ArrowRight' ? 0.16 : -0.16));
   };
-
-  const viewAngle = currentFrame <= AVATAR_FRAME_COUNT / 2
-    ? currentFrame * (360 / AVATAR_FRAME_COUNT)
-    : (currentFrame - AVATAR_FRAME_COUNT) * (360 / AVATAR_FRAME_COUNT);
 
   return (
     <div
-      ref={cardRef}
+      ref={root}
       className={`profile-hologram profile-hologram--${theme}${isInteracting ? ' is-interacting' : ''}`}
       role="group"
       tabIndex={0}
-      aria-label="Interactive multi-view portrait of Jaroslav Venjarski. Move the pointer or use the arrow keys to rotate."
-      onPointerMove={updateFromPointer}
+      aria-label="Interactive three-dimensional point-cloud avatar of Jaroslav Venjarski. Move or drag to rotate; use arrow keys for precise rotation."
+      onPointerMove={handlePointerMove}
       onPointerDown={handlePointerDown}
-      onPointerUp={() => setIsInteracting(false)}
-      onPointerCancel={handlePointerLeave}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       onPointerLeave={handlePointerLeave}
       onKeyDown={handleKeyDown}
     >
-      <motion.div
-        className="profile-hologram__stage"
-        style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
-      >
-        <div className="profile-hologram__halo" />
-        <div
-          className="profile-hologram__frame"
-          style={{ '--holo-photo': `url(${currentSource})` } as CSSProperties}
-        >
-          <div className="profile-hologram__depth profile-hologram__depth--rear" aria-hidden="true" />
-          <div className="profile-hologram__fallback" aria-hidden="true">JV</div>
-          <img
-            src={currentSource}
-            alt="Jaroslav Venjarski, interactive reconstructed portrait"
-            className="profile-hologram__image"
-            width={720}
-            height={960}
-            loading="eager"
-            fetchPriority="high"
-            draggable={false}
-          />
-          <motion.img
-            aria-hidden="true"
-            src={currentSource}
-            className="profile-hologram__image profile-hologram__image--red"
-            style={{ x: translateXRed, opacity: glitchOpacity }}
-            draggable={false}
-          />
-          <motion.img
-            aria-hidden="true"
-            src={currentSource}
-            className="profile-hologram__image profile-hologram__image--blue"
-            style={{ x: translateXBlue, opacity: glitchOpacity }}
-            draggable={false}
-          />
-          <div className="profile-hologram__slices" aria-hidden="true">
-            {[0, 1, 2, 3, 4].map((slice) => <span key={slice} />)}
-          </div>
-          <div className="profile-hologram__grade" />
-          <div className="profile-hologram__dissolve" />
-          <div className="profile-hologram__sweep" />
-        </div>
-
+      <div className="profile-hologram__stage">
+        <div className="profile-hologram__aura" aria-hidden="true" />
+        <div className="profile-hologram__grid" aria-hidden="true" />
         <div className="profile-hologram__canvas" aria-hidden="true">
           <Canvas
-            dpr={[0.75, 1.35]}
-            camera={{ position: [0, 0, 7.1], fov: 40 }}
+            dpr={[0.8, 1.45]}
+            camera={{ position: [0, 0.04, 5.75], fov: 38 }}
             gl={{ alpha: true, antialias: false, powerPreference: 'high-performance' }}
           >
-            <HologramScene velocity={velocity} />
+            <AvatarScene
+              theme={theme}
+              targetYaw={targetYaw}
+              targetPitch={targetPitch}
+              velocity={velocity}
+              interacting={interacting}
+              reducedMotion={reducedMotion}
+            />
           </Canvas>
         </div>
 
+        <div className="profile-hologram__scan" aria-hidden="true" />
         <div className="profile-hologram__hud profile-hologram__hud--top">
-          <span>VOLUMETRIC ID / JV-03</span>
-          <span className="status-dot">{theme === 'dark' ? 'HOLOGRAM' : 'REALITY'}</span>
+          <span>VOLUMETRIC SELF / 53K XYZ</span>
+          <span className="status-dot">LIVE POINT CLOUD</span>
         </div>
         <div className="profile-hologram__hud profile-hologram__hud--bottom">
-          <span>VIEW {viewAngle > 0 ? '+' : ''}{Math.round(viewAngle)}°</span>
-          <span>{String(currentFrame + 1).padStart(2, '0')} / {AVATAR_FRAME_COUNT}</span>
+          <span>YAW {angle > 0 ? '+' : ''}{angle}°</span>
+          <span>{theme === 'dark' ? 'SPECTRAL MODE' : 'NATURAL SPLATS'}</span>
         </div>
-        <div className="profile-hologram__projector" aria-hidden="true">
-          <span /><span /><span />
-        </div>
-      </motion.div>
+        <div className="profile-hologram__projector" aria-hidden="true"><span /><span /><span /></div>
+      </div>
+
       <div className="profile-hologram__rotate-hint" aria-hidden="true">
         <span>ROTATE</span>
-        <i><b style={{ left: `${50 + (viewAngle / 90) * 42}%` }} /></i>
+        <i><b style={{ left: `${50 + (angle / 83) * 44}%` }} /></i>
         <span>MOVE / DRAG</span>
       </div>
     </div>
