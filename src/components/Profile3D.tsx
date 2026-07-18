@@ -290,8 +290,8 @@ export default function Profile3D() {
           <span className="status-dot">LIVE</span>
         </div>
         <div className="profile-hologram__hud profile-hologram__hud--bottom">
-          <span>DEPTH LOCK</span>
-          <span>98.9%</span>
+          <span>SPATIAL SIGNAL</span>
+          <span>CALIBRATED</span>
         </div>
         <div className="profile-hologram__projector" aria-hidden="true">
           <span /><span /><span />

@@ -433,6 +433,46 @@ textarea:focus-visible {
   grid-template-rows: 1fr auto;
   align-items: center;
   gap: 46px 56px;
+  isolation: isolate;
+}
+
+.hero-drone {
+  position: absolute;
+  top: 78px;
+  right: -20vw;
+  bottom: 150px;
+  left: -20vw;
+  z-index: 2;
+  pointer-events: none;
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+
+.hero-drone canvas {
+  position: absolute !important;
+  inset: 0;
+}
+
+.hero-drone__readout {
+  position: absolute;
+  top: 34px;
+  right: 20vw;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: color-mix(in srgb, var(--cyan) 74%, var(--soft));
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.14em;
+  opacity: 0.58;
+}
+
+.hero-drone__readout i {
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--cyan);
+  animation: status-pulse 2.2s infinite;
 }
 
 .hero-copy {
@@ -492,6 +532,14 @@ textarea:focus-visible {
 
 .hero-copy h1 > span {
   display: block;
+}
+
+.hero-copy h1 > span:last-child {
+  max-width: 760px;
+  margin-top: 0.16em;
+  font-size: 0.7em;
+  letter-spacing: -0.055em;
+  line-height: 1.04;
 }
 
 .hero-gradient {
@@ -592,6 +640,8 @@ textarea:focus-visible {
 }
 
 .hero-metrics {
+  position: relative;
+  z-index: 3;
   grid-column: 1 / 3;
   width: min(670px, 100%);
   display: grid;
@@ -613,13 +663,16 @@ textarea:focus-visible {
 
 .hero-metrics strong {
   color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 22px;
+  font-size: clamp(14px, 1.45vw, 18px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
 }
 
 .hero-metrics span {
   color: var(--soft);
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.02em;
 }
 
 .scroll-cue {
@@ -635,6 +688,7 @@ textarea:focus-visible {
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  z-index: 3;
 }
 
 .scroll-cue svg {
@@ -2114,6 +2168,7 @@ textarea:focus-visible {
   .mobile-menu a span { color: var(--cyan); font-family: var(--font-mono); font-size: 10px; }
   .site-content { width: min(100% - 30px, 680px); }
   .hero-section { min-height: auto; padding-top: 130px; grid-template-columns: 1fr; gap: 44px; }
+  .hero-drone { display: none; }
   .hero-copy { max-width: 650px; }
   .hero-copy h1 { font-size: clamp(3.5rem, 13vw, 6.2rem); }
   .hero-visual { width: min(100%, 450px); justify-self: center; }

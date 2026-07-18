@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import ContactModal from './components/ContactModal';
+import HeroDrone from './components/HeroDrone';
 import { DecodeText, Reveal, SectionHeading } from './components/MotionPrimitives';
 import Profile3D from './components/Profile3D';
 import SignalBackground from './components/SignalBackground';
@@ -50,19 +51,20 @@ const copy = {
   en: {
     nav: { about: 'About', skills: 'Expertise', research: 'Research', publications: 'Publications', contact: 'Contact' },
     status: 'Open to research collaboration',
-    role: 'Ph.D. Researcher · Computer Vision · Signal Processing',
-    heroLead: 'Engineering',
-    heroAccent: 'new viewpoints',
-    heroTail: 'from sparse visual signals.',
+    role: 'Researcher · Educator · Research Engineer',
+    heroLead: 'Researching what',
+    heroAccent: 'machines can see.',
+    heroTail: 'Building what people can experience.',
     heroDescription:
-      'I design methods that reconstruct, understand, and synthesize 3D scenes — connecting academic research with efficient, production-minded software.',
-    viewResearch: 'Explore research',
+      'I connect computer vision, signal processing, 3D technologies, and research engineering to turn demanding ideas into clear, working systems.',
+    viewResearch: 'See how I work',
     contactMe: 'Start a conversation',
-    scroll: 'Scroll to reconstruct',
+    scroll: 'Scroll to explore',
+    visualLabel: 'SPATIAL RESEARCH INTERFACE',
     heroMetrics: [
-      { value: '98.9%', label: 'KRAFT precision' },
-      { value: '2–4', label: 'sparse camera inputs' },
-      { value: '05', label: 'selected publications' },
+      { value: 'Research', label: 'from questions to evidence' },
+      { value: 'Engineering', label: 'from concepts to working systems' },
+      { value: 'Education', label: 'from complexity to understanding' },
     ],
     aboutEyebrow: 'Research profile',
     aboutTitle: 'Between pixels and spatial intelligence',
@@ -104,19 +106,20 @@ const copy = {
   sk: {
     nav: { about: 'O mne', skills: 'Expertíza', research: 'Výskum', publications: 'Publikácie', contact: 'Kontakt' },
     status: 'Otvorený výskumnej spolupráci',
-    role: 'PhD. výskumník · Počítačové videnie · Spracovanie signálov',
-    heroLead: 'Navrhujem',
-    heroAccent: 'nové pohľady',
-    heroTail: 'z riedkych vizuálnych signálov.',
+    role: 'Výskumník · Pedagóg · Výskumný vývojár',
+    heroLead: 'Skúmam, čo dokážu',
+    heroAccent: 'vidieť stroje.',
+    heroTail: 'Tvorím to, čo môžu zažiť ľudia.',
     heroDescription:
-      'Vyvíjam metódy, ktoré rekonštruujú, interpretujú a syntetizujú 3D scény — prepájam akademický výskum s efektívnym softvérom pripraveným na reálne použitie.',
-    viewResearch: 'Preskúmať výskum',
+      'Prepájam počítačové videnie, spracovanie signálov, 3D technológie a výskumný vývoj, aby som náročné myšlienky menil na zrozumiteľné a funkčné systémy.',
+    viewResearch: 'Pozrieť, ako pracujem',
     contactMe: 'Začať rozhovor',
-    scroll: 'Posuňte sa pre rekonštrukciu',
+    scroll: 'Posuňte sa a preskúmajte',
+    visualLabel: 'PRIESTOROVÉ VÝSKUMNÉ ROZHRANIE',
     heroMetrics: [
-      { value: '98,9 %', label: 'presnosť KRAFT' },
-      { value: '2–4', label: 'vstupné kamery' },
-      { value: '05', label: 'vybraných publikácií' },
+      { value: 'Výskum', label: 'od otázok k dôkazom' },
+      { value: 'Vývoj', label: 'od konceptov k funkčným systémom' },
+      { value: 'Vzdelávanie', label: 'od zložitosti k porozumeniu' },
     ],
     aboutEyebrow: 'Výskumný profil',
     aboutTitle: 'Medzi pixelmi a priestorovou inteligenciou',
@@ -285,6 +288,7 @@ export default function App() {
 
       <main id="top" className="site-content">
         <section className="hero-section" aria-labelledby="hero-title">
+          <HeroDrone />
           <motion.div className="hero-copy" style={{ y: heroY, opacity: heroOpacity }}>
             <motion.div className="availability-pill" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
               <span className="availability-pill__pulse" />{t.status}
@@ -305,7 +309,7 @@ export default function App() {
           </motion.div>
 
           <motion.div className="hero-visual" initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1, delay: 0.18 }}>
-            <div className="hero-visual__label"><span>LIVE RECONSTRUCTION</span><i /></div>
+            <div className="hero-visual__label"><span>{t.visualLabel}</span><i /></div>
             <Profile3D />
           </motion.div>
 
