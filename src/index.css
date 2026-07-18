@@ -19,8 +19,10 @@
   --soft: #718096;
   --cyan: #008da4;
   --cyan-bright: #00d8f2;
+  --blue: #2674ff;
   --violet: #7247dc;
   --pink: #d6468c;
+  --orange: #e76b23;
   --emerald: #0f9b73;
   --shadow: 0 28px 70px rgba(41, 65, 84, 0.12);
   --nav-height: 72px;
@@ -38,8 +40,10 @@
   --soft: #66788b;
   --cyan: #4de9ff;
   --cyan-bright: #83f3ff;
+  --blue: #5a8dff;
   --violet: #a985ff;
-  --pink: #ff7fbc;
+  --pink: #ff59ad;
+  --orange: #ff9b54;
   --emerald: #52e3ad;
   --shadow: 0 34px 90px rgba(0, 0, 0, 0.36);
 }
@@ -70,7 +74,10 @@ body::before {
   z-index: -2;
   content: "";
   background:
-    radial-gradient(circle at 16% 8%, color-mix(in srgb, var(--violet) 10%, transparent), transparent 27%),
+    radial-gradient(circle at 12% 9%, color-mix(in srgb, var(--violet) 16%, transparent), transparent 29%),
+    radial-gradient(circle at 88% 18%, color-mix(in srgb, var(--cyan) 12%, transparent), transparent 27%),
+    radial-gradient(circle at 78% 74%, color-mix(in srgb, var(--pink) 9%, transparent), transparent 31%),
+    radial-gradient(circle at 18% 88%, color-mix(in srgb, var(--orange) 7%, transparent), transparent 28%),
     linear-gradient(180deg, var(--bg), var(--bg-deep));
 }
 
@@ -127,6 +134,8 @@ textarea:focus-visible {
 }
 
 .signal-background {
+  --cursor-x: 50vw;
+  --cursor-y: 34vh;
   position: fixed;
   inset: 0;
   z-index: 0;
@@ -137,30 +146,98 @@ textarea:focus-visible {
 .signal-background canvas {
   position: absolute !important;
   inset: 0;
-  opacity: 0.72;
+  opacity: 0.88;
 }
 
 .signal-background__aurora {
   position: absolute;
-  width: min(72vw, 1100px);
-  height: min(72vw, 1100px);
-  top: -34vw;
-  left: 32%;
   border-radius: 50%;
-  background: conic-gradient(from 190deg, rgba(77, 233, 255, 0.12), rgba(124, 58, 237, 0.11), transparent 42%);
-  filter: blur(90px);
-  opacity: 0.66;
+  filter: blur(94px);
+  mix-blend-mode: screen;
+  animation: aurora-drift 18s ease-in-out infinite alternate;
+}
+
+.signal-background__aurora--cyan {
+  top: -32vw;
+  left: 28%;
+  width: min(76vw, 1180px);
+  height: min(76vw, 1180px);
+  opacity: 0.72;
+  background: conic-gradient(from 180deg, rgba(77, 233, 255, 0.2), rgba(37, 99, 235, 0.13), transparent 44%);
+}
+
+.signal-background__aurora--violet {
+  top: 24%;
+  left: -22vw;
+  width: min(64vw, 920px);
+  height: min(64vw, 920px);
+  opacity: 0.46;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.21), transparent 67%);
+  animation-delay: -7s;
+}
+
+.signal-background__aurora--magenta {
+  right: -18vw;
+  bottom: 4%;
+  width: min(58vw, 850px);
+  height: min(58vw, 850px);
+  opacity: 0.4;
+  background: radial-gradient(circle, rgba(244, 63, 158, 0.2), transparent 68%);
+  animation-delay: -12s;
+}
+
+.signal-background__aurora--amber {
+  bottom: -26vw;
+  left: 18%;
+  width: min(48vw, 720px);
+  height: min(48vw, 720px);
+  opacity: 0.23;
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.21), transparent 66%);
+  animation-delay: -4s;
 }
 
 .signal-background__grid {
   position: absolute;
   inset: 0;
-  opacity: 0.18;
+  opacity: 0.24;
   background-image:
     linear-gradient(var(--line) 1px, transparent 1px),
     linear-gradient(90deg, var(--line) 1px, transparent 1px);
   background-size: 72px 72px;
   mask-image: linear-gradient(to bottom, black, transparent 58%);
+}
+
+.signal-background__cursor {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(360px circle at var(--cursor-x) var(--cursor-y), rgba(77, 233, 255, 0.13), transparent 54%),
+    radial-gradient(190px circle at var(--cursor-x) var(--cursor-y), rgba(255, 89, 173, 0.07), transparent 60%);
+  mix-blend-mode: screen;
+}
+
+.signal-background__beam {
+  position: absolute;
+  top: -30%;
+  left: -42%;
+  width: 68%;
+  height: 170%;
+  opacity: 0.28;
+  background: linear-gradient(90deg, transparent 42%, rgba(100, 224, 255, 0.06) 49%, rgba(174, 116, 255, 0.11) 50%, transparent 58%);
+  filter: blur(8px);
+  transform: rotate(18deg);
+  animation: spectral-beam 14s ease-in-out infinite;
+}
+
+.signal-background__scanner {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 2px;
+  opacity: 0.34;
+  background: linear-gradient(90deg, transparent, var(--cyan) 24%, var(--pink) 68%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--cyan) 42%, transparent), 0 0 52px color-mix(in srgb, var(--pink) 18%, transparent);
+  animation: background-scan 11s linear infinite;
 }
 
 .signal-background__noise {
@@ -177,7 +254,7 @@ textarea:focus-visible {
 .signal-background__vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 34%, transparent 18%, color-mix(in srgb, var(--bg) 46%, transparent) 74%, var(--bg) 116%);
+  background: radial-gradient(circle at 50% 34%, transparent 22%, color-mix(in srgb, var(--bg) 35%, transparent) 76%, color-mix(in srgb, var(--bg) 86%, transparent) 116%);
 }
 
 .scroll-progress {
@@ -422,7 +499,9 @@ textarea:focus-visible {
   max-width: 100%;
   padding-right: 0.08em;
   color: transparent;
-  background: linear-gradient(100deg, var(--cyan-bright), #4b9cff 38%, var(--violet) 72%, var(--pink));
+  background: linear-gradient(100deg, var(--cyan-bright), var(--blue) 31%, var(--violet) 58%, var(--pink) 79%, var(--orange));
+  background-size: 180% 100%;
+  animation: hero-spectrum 7s ease-in-out infinite alternate;
   background-clip: text;
   -webkit-background-clip: text;
   filter: drop-shadow(0 0 28px color-mix(in srgb, var(--cyan) 18%, transparent));
@@ -578,7 +657,7 @@ textarea:focus-visible {
   position: absolute;
   inset: 9% -8% 0;
   border-radius: 40%;
-  background: conic-gradient(from 190deg, rgba(77, 233, 255, 0.19), rgba(124, 58, 237, 0.2), transparent 42%, rgba(0, 216, 242, 0.15));
+  background: conic-gradient(from 190deg, rgba(77, 233, 255, 0.28), rgba(90, 141, 255, 0.18), rgba(169, 133, 255, 0.26), rgba(255, 89, 173, 0.22), transparent 58%, rgba(0, 216, 242, 0.2));
   filter: blur(42px);
   animation: halo-breathe 4.5s ease-in-out infinite;
   transform: translateZ(-70px);
@@ -588,13 +667,15 @@ textarea:focus-visible {
   position: absolute;
   inset: 7% 10% 8%;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--cyan) 26%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--cyan) 52%, var(--line));
   border-radius: 9px 46px 9px 46px;
   background: #071019;
   box-shadow:
     0 38px 80px rgba(0, 0, 0, 0.38),
-    0 0 0 1px rgba(150, 230, 255, 0.03) inset,
-    0 0 38px rgba(0, 216, 242, 0.08) inset;
+    -18px 0 60px rgba(77, 233, 255, 0.11),
+    18px 0 64px rgba(255, 89, 173, 0.1),
+    0 0 0 1px rgba(150, 230, 255, 0.06) inset,
+    0 0 48px rgba(0, 216, 242, 0.12) inset;
   transform: translateZ(4px);
 }
 
@@ -615,7 +696,9 @@ textarea:focus-visible {
 
 .profile-hologram__frame::after {
   inset: 0;
-  background: linear-gradient(90deg, rgba(0, 225, 255, 0.1), transparent 13%, transparent 84%, rgba(151, 71, 255, 0.14));
+  background:
+    linear-gradient(90deg, rgba(0, 225, 255, 0.18), transparent 16%, transparent 76%, rgba(255, 47, 155, 0.2)),
+    linear-gradient(148deg, transparent 48%, rgba(169, 133, 255, 0.09) 49%, transparent 51%);
 }
 
 .profile-hologram__image {
@@ -625,7 +708,7 @@ textarea:focus-visible {
   height: 100%;
   object-fit: cover;
   object-position: center top;
-  filter: saturate(0.68) contrast(1.08) brightness(0.88) hue-rotate(3deg);
+  filter: saturate(1.12) contrast(1.18) brightness(0.82) hue-rotate(3deg);
   transform: scale(1.015);
 }
 
@@ -651,23 +734,65 @@ textarea:focus-visible {
 }
 
 .profile-hologram__image--red {
-  filter: sepia(1) saturate(7) hue-rotate(288deg) contrast(1.2);
+  filter: sepia(1) saturate(8) hue-rotate(288deg) contrast(1.3);
   clip-path: polygon(0 15%, 100% 10%, 100% 46%, 0 51%);
 }
 
 .profile-hologram__image--blue {
-  filter: sepia(1) saturate(7) hue-rotate(136deg) contrast(1.2);
+  filter: sepia(1) saturate(8) hue-rotate(136deg) contrast(1.3);
   clip-path: polygon(0 48%, 100% 43%, 100% 86%, 0 91%);
 }
+
+.profile-hologram__slices {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.profile-hologram__slices span {
+  position: absolute;
+  inset: 0;
+  opacity: 0.09;
+  background-image: var(--holo-photo);
+  background-position: center top;
+  background-size: cover;
+  filter: saturate(2.4) contrast(1.28);
+  animation: hologram-slice 4.6s steps(2, end) infinite;
+}
+
+.profile-hologram__slices span:nth-child(1) { clip-path: polygon(0 5%, 100% 2%, 100% 16%, 0 19%); }
+.profile-hologram__slices span:nth-child(2) { clip-path: polygon(0 23%, 100% 20%, 100% 34%, 0 37%); filter: saturate(2.4) contrast(1.28) hue-rotate(22deg); animation-delay: -0.73s; }
+.profile-hologram__slices span:nth-child(3) { clip-path: polygon(0 41%, 100% 38%, 100% 52%, 0 55%); filter: saturate(2.4) contrast(1.28) hue-rotate(44deg); animation-delay: -1.46s; }
+.profile-hologram__slices span:nth-child(4) { clip-path: polygon(0 59%, 100% 56%, 100% 70%, 0 73%); filter: saturate(2.4) contrast(1.28) hue-rotate(66deg); animation-delay: -2.19s; }
+.profile-hologram__slices span:nth-child(5) { clip-path: polygon(0 77%, 100% 74%, 100% 88%, 0 91%); filter: saturate(2.4) contrast(1.28) hue-rotate(88deg); animation-delay: -2.92s; }
 
 .profile-hologram__grade {
   position: absolute;
   inset: 0;
   z-index: 2;
   background:
-    linear-gradient(to top, rgba(3, 9, 14, 0.88), transparent 40%),
-    linear-gradient(120deg, rgba(0, 225, 255, 0.18), transparent 38%, rgba(125, 58, 237, 0.12));
+    linear-gradient(to top, rgba(3, 9, 14, 0.9), transparent 42%),
+    radial-gradient(circle at 37% 28%, rgba(0, 225, 255, 0.18), transparent 26%),
+    linear-gradient(120deg, rgba(0, 225, 255, 0.22), transparent 36%, rgba(125, 58, 237, 0.16) 68%, rgba(255, 53, 153, 0.15));
   mix-blend-mode: screen;
+}
+
+.profile-hologram__dissolve {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0.68;
+  background-image:
+    radial-gradient(circle, rgba(116, 244, 255, 0.92) 0 0.8px, transparent 1.2px),
+    radial-gradient(circle, rgba(255, 83, 174, 0.72) 0 0.7px, transparent 1.1px);
+  background-position: 0 0, 7px 11px;
+  background-size: 12px 12px, 17px 17px;
+  mask-image: radial-gradient(ellipse at center, transparent 32%, rgba(0, 0, 0, 0.2) 52%, black 88%);
+  mix-blend-mode: screen;
+  animation: dissolve-drift 6s linear infinite;
+  pointer-events: none;
 }
 
 .profile-hologram__sweep {
@@ -709,6 +834,33 @@ textarea:focus-visible {
 .profile-hologram__hud--top { top: 3.6%; }
 .profile-hologram__hud--bottom { bottom: 3%; }
 
+.profile-hologram__projector {
+  position: absolute;
+  right: 8%;
+  bottom: 1.5%;
+  left: 8%;
+  z-index: 8;
+  height: 15%;
+  pointer-events: none;
+  transform: translateZ(42px);
+}
+
+.profile-hologram__projector span {
+  position: absolute;
+  right: 50%;
+  bottom: 0;
+  width: 76%;
+  height: 24%;
+  border: 1px solid rgba(77, 233, 255, 0.32);
+  border-radius: 50%;
+  box-shadow: 0 0 18px rgba(77, 233, 255, 0.12);
+  transform: translateX(50%);
+  animation: projector-pulse 2.8s ease-out infinite;
+}
+
+.profile-hologram__projector span:nth-child(2) { width: 54%; animation-delay: -0.9s; border-color: rgba(169, 133, 255, 0.28); }
+.profile-hologram__projector span:nth-child(3) { width: 34%; animation-delay: -1.8s; border-color: rgba(255, 89, 173, 0.24); }
+
 .status-dot {
   display: inline-flex;
   align-items: center;
@@ -738,6 +890,12 @@ textarea:focus-visible {
   background: var(--cyan);
   box-shadow: 0 0 9px var(--cyan);
 }
+
+.signal-rail span:nth-of-type(2),
+.signal-rail span:nth-of-type(5) { color: var(--violet); }
+.signal-rail span:nth-of-type(3) { color: var(--pink); }
+.signal-rail span:nth-of-type(4) { color: var(--orange); }
+.signal-rail span:nth-of-type(6) { color: var(--emerald); }
 
 .content-section {
   padding: 150px 0 24px;
@@ -806,6 +964,10 @@ textarea:focus-visible {
 .cyber-panel {
   overflow: hidden;
   border-radius: 20px;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--accent, var(--cyan)) 8%, transparent), transparent 34%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--violet) 7%, transparent), transparent 36%),
+    linear-gradient(145deg, color-mix(in srgb, var(--surface-strong) 88%, transparent), color-mix(in srgb, var(--surface) 74%, transparent));
 }
 
 .cyber-panel::before {
@@ -943,6 +1105,9 @@ textarea:focus-visible {
   min-height: 335px;
   padding: 24px;
   transition: transform 350ms ease, border-color 350ms ease, box-shadow 350ms ease;
+  background:
+    radial-gradient(circle at 84% 8%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 28%),
+    linear-gradient(145deg, color-mix(in srgb, var(--surface-strong) 88%, transparent), color-mix(in srgb, var(--surface) 70%, transparent));
 }
 
 .expertise-card:hover {
@@ -1047,6 +1212,10 @@ textarea:focus-visible {
   text-align: left;
   color: var(--text);
   cursor: pointer;
+  background:
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 28%),
+    radial-gradient(circle at 8% 100%, color-mix(in srgb, var(--violet) 7%, transparent), transparent 35%),
+    linear-gradient(145deg, color-mix(in srgb, var(--surface-strong) 88%, transparent), color-mix(in srgb, var(--surface) 70%, transparent));
   transition: transform 350ms ease, border-color 350ms ease, box-shadow 350ms ease;
 }
 
@@ -1843,6 +2012,47 @@ textarea:focus-visible {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @keyframes telemetry-loading { to { background-position: -220% 0; } }
+
+@keyframes aurora-drift {
+  0% { transform: translate3d(-3%, -2%, 0) scale(0.94) rotate(-4deg); }
+  50% { transform: translate3d(4%, 3%, 0) scale(1.08) rotate(4deg); }
+  100% { transform: translate3d(-1%, 6%, 0) scale(1.02) rotate(-2deg); }
+}
+
+@keyframes spectral-beam {
+  0%, 100% { transform: translateX(-28%) rotate(18deg); opacity: 0; }
+  20% { opacity: 0.24; }
+  62% { opacity: 0.35; }
+  78% { transform: translateX(245%) rotate(18deg); opacity: 0; }
+}
+
+@keyframes background-scan {
+  from { top: -4%; }
+  to { top: 106%; }
+}
+
+@keyframes hero-spectrum {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+
+@keyframes hologram-slice {
+  0%, 84%, 100% { transform: translateX(0); opacity: 0.08; }
+  86% { transform: translateX(8px); opacity: 0.28; }
+  89% { transform: translateX(-5px); opacity: 0.17; }
+  92% { transform: translateX(3px); opacity: 0.12; }
+}
+
+@keyframes dissolve-drift {
+  from { background-position: 0 0, 7px 11px; }
+  to { background-position: 24px -18px, -27px 45px; }
+}
+
+@keyframes projector-pulse {
+  0% { opacity: 0; transform: translateX(50%) scale(0.55); }
+  30% { opacity: 0.72; }
+  100% { opacity: 0; transform: translateX(50%) scale(1.18); }
+}
 
 @keyframes status-pulse {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--emerald) 48%, transparent); }

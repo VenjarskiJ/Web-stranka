@@ -1,7 +1,7 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float } from '@react-three/drei';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { useEffect, useMemo, useRef } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 
 const PROFILE_IMAGE =
@@ -35,10 +35,12 @@ const scanFragment = /* glsl */ `
     float edge = 1.0 - smoothstep(0.28, 0.49, max(abs(vUv.x - 0.5), abs(vUv.y - 0.5)));
     float scan = 0.45 + 0.55 * sin(vUv.y * 720.0 - uTime * 14.0);
     float glitchBand = step(0.965 - uVelocity * 0.15, noise(vec2(floor(vUv.y * 40.0), floor(uTime * 14.0))));
-    vec3 cyan = vec3(0.02, 0.92, 1.0);
-    vec3 violet = vec3(0.58, 0.24, 1.0);
+    vec3 cyan = vec3(0.02, 0.94, 1.0);
+    vec3 violet = vec3(0.62, 0.20, 1.0);
+    vec3 magenta = vec3(1.0, 0.12, 0.58);
     vec3 color = mix(violet, cyan, vUv.y + sin(uTime) * 0.08);
-    float alpha = (0.035 + scan * 0.11 + glitchBand * uVelocity * 0.28) * edge;
+    color = mix(color, magenta, glitchBand * (0.28 + uVelocity * 0.5));
+    float alpha = (0.055 + scan * 0.15 + glitchBand * (0.12 + uVelocity * 0.34)) * edge;
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -64,7 +66,11 @@ const pointFragment = /* glsl */ `
   void main() {
     float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
     float alpha = smoothstep(0.5, 0.05, distanceToCenter) * vAlpha;
-    vec3 color = mix(vec3(0.38, 0.18, 1.0), vec3(0.02, 0.95, 1.0), gl_PointCoord.y);
+    vec3 violet = vec3(0.44, 0.16, 1.0);
+    vec3 cyan = vec3(0.02, 0.96, 1.0);
+    vec3 magenta = vec3(1.0, 0.18, 0.62);
+    vec3 color = mix(violet, cyan, gl_PointCoord.y);
+    color = mix(color, magenta, smoothstep(0.58, 1.0, gl_PointCoord.x) * 0.55);
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -75,7 +81,7 @@ function HologramScene({ velocity }: { velocity: React.MutableRefObject<number> 
   const pointMaterial = useRef<THREE.ShaderMaterial>(null);
 
   const particleGeometry = useMemo(() => {
-    const count = 620;
+    const count = 820;
     const positions = new Float32Array(count * 3);
     const phases = new Float32Array(count);
 
@@ -187,9 +193,9 @@ export default function Profile3D() {
   const springY = useSpring(y, { stiffness: 130, damping: 18, mass: 0.55 });
   const rotateX = useTransform(springY, [-1, 1], ['8deg', '-8deg']);
   const rotateY = useTransform(springX, [-1, 1], ['-10deg', '10deg']);
-  const translateXRed = useTransform(glitch, [0, 1], [0, 8]);
-  const translateXBlue = useTransform(glitch, [0, 1], [0, -8]);
-  const glitchOpacity = useTransform(glitch, [0, 0.15, 1], [0, 0.12, 0.38]);
+  const translateXRed = useTransform(glitch, [0, 1], [1.5, 11]);
+  const translateXBlue = useTransform(glitch, [0, 1], [-1.5, -11]);
+  const glitchOpacity = useTransform(glitch, [0, 0.15, 1], [0.055, 0.17, 0.48]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -231,7 +237,10 @@ export default function Profile3D() {
         style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
       >
         <div className="profile-hologram__halo" />
-        <div className="profile-hologram__frame">
+        <div
+          className="profile-hologram__frame"
+          style={{ '--holo-photo': `url(${PROFILE_IMAGE})` } as CSSProperties}
+        >
           <div className="profile-hologram__fallback" aria-hidden="true">JV</div>
           <img
             src={PROFILE_IMAGE}
@@ -256,7 +265,13 @@ export default function Profile3D() {
             style={{ x: translateXBlue, opacity: glitchOpacity }}
             onError={(event) => { event.currentTarget.style.display = 'none'; }}
           />
+          <div className="profile-hologram__slices" aria-hidden="true">
+            {[0, 1, 2, 3, 4].map((slice) => (
+              <span key={slice} />
+            ))}
+          </div>
           <div className="profile-hologram__grade" />
+          <div className="profile-hologram__dissolve" />
           <div className="profile-hologram__sweep" />
         </div>
 
@@ -277,6 +292,9 @@ export default function Profile3D() {
         <div className="profile-hologram__hud profile-hologram__hud--bottom">
           <span>DEPTH LOCK</span>
           <span>98.9%</span>
+        </div>
+        <div className="profile-hologram__projector" aria-hidden="true">
+          <span /><span /><span />
         </div>
       </motion.div>
     </div>

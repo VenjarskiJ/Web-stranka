@@ -38,7 +38,7 @@ const cloudFragment = /* glsl */ `
     float d = distance(gl_PointCoord, vec2(0.5));
     float core = smoothstep(0.5, 0.0, d);
     float halo = smoothstep(0.5, 0.14, d) * 0.35;
-    gl_FragColor = vec4(vColor * (1.0 + core * 0.9), (core + halo) * vDepth * 0.62);
+    gl_FragColor = vec4(vColor * (1.0 + core * 1.15), (core + halo) * vDepth * 0.74);
   }
 `;
 
@@ -86,7 +86,7 @@ function ReconstructionField() {
 
   const geometry = useMemo(() => {
     const isCompact = window.innerWidth < 768;
-    const count = isCompact ? 520 : 1050;
+    const count = isCompact ? 650 : 1450;
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
@@ -94,10 +94,14 @@ function ReconstructionField() {
     const cyan = new THREE.Color('#2dd4ea');
     const violet = new THREE.Color('#7c3aed');
     const blue = new THREE.Color('#2563eb');
+    const magenta = new THREE.Color('#f43f9e');
+    const amber = new THREE.Color('#fb923c');
+    const emerald = new THREE.Color('#10b981');
+    const palette = [cyan, violet, blue, magenta, amber, emerald];
 
     for (let index = 0; index < count; index += 1) {
       const phase = Math.random();
-      const band = Math.floor(Math.random() * 5);
+      const band = Math.floor(Math.random() * palette.length);
       const angle = Math.random() * Math.PI * 2;
       const radius = 2.2 + Math.random() * 7.8;
       const shapeNoise = (Math.random() - 0.5) * 1.8;
@@ -108,8 +112,8 @@ function ReconstructionField() {
       positions[index * 3 + 1] = baseY + Math.sin(angle * 3.0) * 0.6 + (band - 2) * 0.16;
       positions[index * 3 + 2] = -1.5 - Math.random() * 10 + Math.sin(baseX) * 0.7;
 
-      const mixed = (band % 3 === 0 ? cyan : band % 3 === 1 ? violet : blue).clone();
-      mixed.lerp(cyan, Math.random() * 0.3);
+      const mixed = palette[band].clone();
+      mixed.lerp(cyan, Math.random() * 0.18);
       colors[index * 3] = mixed.r;
       colors[index * 3 + 1] = mixed.g;
       colors[index * 3 + 2] = mixed.b;
@@ -199,12 +203,95 @@ function ReconstructionField() {
   );
 }
 
-export default function SignalBackground() {
-  const shouldReduceMotion = useReducedMotion();
+function SpectralObjects() {
+  const orbitGroup = useRef<THREE.Group>(null);
+  const core = useRef<THREE.Mesh>(null);
+  const streaks = useRef<THREE.LineSegments>(null);
+
+  const streakGeometry = useMemo(() => {
+    const count = 52;
+    const positions = new Float32Array(count * 6);
+    for (let index = 0; index < count; index += 1) {
+      const x = (Math.random() - 0.5) * 20;
+      const y = (Math.random() - 0.5) * 12;
+      const z = -4 - Math.random() * 12;
+      const length = 0.18 + Math.random() * 1.2;
+      positions[index * 6] = x;
+      positions[index * 6 + 1] = y;
+      positions[index * 6 + 2] = z;
+      positions[index * 6 + 3] = x + length;
+      positions[index * 6 + 4] = y + length * 0.08;
+      positions[index * 6 + 5] = z;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    return geometry;
+  }, []);
+
+  useFrame((state, delta) => {
+    const time = state.clock.elapsedTime;
+    if (orbitGroup.current) {
+      orbitGroup.current.rotation.x += delta * 0.022;
+      orbitGroup.current.rotation.y -= delta * 0.034;
+      orbitGroup.current.rotation.z = Math.sin(time * 0.12) * 0.18;
+    }
+    if (core.current) {
+      core.current.rotation.x = time * 0.035;
+      core.current.rotation.y = -time * 0.052;
+      core.current.position.y = 1.15 + Math.sin(time * 0.32) * 0.22;
+    }
+    if (streaks.current) {
+      streaks.current.position.x = ((time * 0.24) % 5) - 2.5;
+      streaks.current.rotation.z = Math.sin(time * 0.08) * 0.04;
+    }
+  });
 
   return (
-    <div className="signal-background" aria-hidden="true">
-      <div className="signal-background__aurora" />
+    <group>
+      <group ref={orbitGroup} position={[4.5, 1.1, -8.5]} rotation={[0.35, 0.25, 0]}>
+        {[
+          { radius: 2.15, tube: 0.012, color: '#4de9ff', opacity: 0.18 },
+          { radius: 2.72, tube: 0.009, color: '#a985ff', opacity: 0.13 },
+          { radius: 3.22, tube: 0.007, color: '#ff4fa3', opacity: 0.1 },
+        ].map((ring, index) => (
+          <mesh key={ring.radius} rotation={[index * 0.72, index * 0.5, index * 0.4]}>
+            <torusGeometry args={[ring.radius, ring.tube, 5, 160]} />
+            <meshBasicMaterial color={ring.color} transparent opacity={ring.opacity} blending={THREE.AdditiveBlending} depthWrite={false} />
+          </mesh>
+        ))}
+      </group>
+
+      <mesh ref={core} position={[-5.4, 1.15, -10]}>
+        <icosahedronGeometry args={[1.65, 2]} />
+        <meshBasicMaterial color="#ff4fa3" wireframe transparent opacity={0.08} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+
+      <lineSegments ref={streaks} geometry={streakGeometry}>
+        <lineBasicMaterial color="#67e8f9" transparent opacity={0.18} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </lineSegments>
+    </group>
+  );
+}
+
+export default function SignalBackground() {
+  const shouldReduceMotion = useReducedMotion();
+  const backgroundRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      backgroundRef.current?.style.setProperty('--cursor-x', `${event.clientX}px`);
+      backgroundRef.current?.style.setProperty('--cursor-y', `${event.clientY}px`);
+    };
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    return () => window.removeEventListener('pointermove', handlePointerMove);
+  }, []);
+
+  return (
+    <div ref={backgroundRef} className="signal-background" aria-hidden="true">
+      <div className="signal-background__aurora signal-background__aurora--cyan" />
+      <div className="signal-background__aurora signal-background__aurora--violet" />
+      <div className="signal-background__aurora signal-background__aurora--magenta" />
+      <div className="signal-background__aurora signal-background__aurora--amber" />
       <div className="signal-background__grid" />
       {!shouldReduceMotion && (
         <Canvas
@@ -214,8 +301,12 @@ export default function SignalBackground() {
           frameloop="always"
         >
           <ReconstructionField />
+          <SpectralObjects />
         </Canvas>
       )}
+      <div className="signal-background__cursor" />
+      <div className="signal-background__beam" />
+      <div className="signal-background__scanner" />
       <div className="signal-background__noise" />
       <div className="signal-background__vignette" />
     </div>
