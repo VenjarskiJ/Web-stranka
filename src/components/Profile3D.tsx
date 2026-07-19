@@ -1,196 +1,67 @@
-import {
-  type CSSProperties,
-  type KeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useEffect, useRef } from 'react';
+import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 
-const MAX_YAW = 72;
-const VIEW_COUNT = 17;
-const VIEW_URLS = Array.from(
-  { length: VIEW_COUNT },
-  (_, index) => `./avatar/multiview/portrait-${String(index).padStart(2, '0')}.webp?v=2`,
-);
+// Pridali sme sem theme a lang, aby to korektne komunikovalo s novým App.tsx
+export default function Profile3D({ theme, lang }: { theme?: string, lang?: string }) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const cardRef = useRef<HTMLDivElement>(null);
 
-type Profile3DProps = {
-  theme: 'dark' | 'light';
-  lang: 'en' | 'sk';
-};
+  const mouseXSpring = useSpring(x, { stiffness: 150, damping: 15 });
+  const mouseYSpring = useSpring(y, { stiffness: 150, damping: 15 });
 
-export default function Profile3D({ theme, lang }: Profile3DProps) {
-  const root = useRef<HTMLDivElement>(null);
-  const targetYaw = useRef(0);
-  const currentYaw = useRef(0);
-  const lastInputAt = useRef(performance.now());
-  const drag = useRef({ active: false, startX: 0, startYaw: 0 });
-  const [yaw, setYawState] = useState(0);
-  const [isInteracting, setIsInteracting] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["15deg", "-15deg"]);
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-15deg", "15deg"]);
 
   useEffect(() => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReducedMotion(media.matches);
-    update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!cardRef.current) return;
+      const rect = cardRef.current.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
 
-  useEffect(() => {
-    VIEW_URLS.forEach((url) => {
-      const image = new Image();
-      image.decoding = 'async';
-      image.src = url;
-    });
-  }, []);
+      const xPct = (e.clientX - centerX) / window.innerWidth;
+      const yPct = (e.clientY - centerY) / window.innerHeight;
 
-  useEffect(() => {
-    let animationFrame = 0;
-    const animate = (time: number) => {
-      const idle = !reducedMotion && !drag.current.active && time - lastInputAt.current > 1700
-        ? Math.sin(time * 0.00055) * 3.2
-        : 0;
-      const destination = targetYaw.current + idle;
-      currentYaw.current += (destination - currentYaw.current) * (reducedMotion ? 0.34 : 0.11);
-      setYawState(currentYaw.current);
-      animationFrame = requestAnimationFrame(animate);
+      x.set(xPct * 2.5);
+      y.set(yPct * 2.5);
     };
-    animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [reducedMotion]);
 
-  const setYaw = (next: number) => {
-    targetYaw.current = Math.max(-MAX_YAW, Math.min(MAX_YAW, next));
-    lastInputAt.current = performance.now();
-  };
+    const handleMouseLeave = () => {
+      x.set(0);
+      y.set(0);
+    };
 
-  const updateFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const bounds = root.current?.getBoundingClientRect();
-    if (!bounds) return;
-    if (drag.current.active) {
-      const delta = (event.clientX - drag.current.startX) / Math.max(bounds.width, 1);
-      setYaw(drag.current.startYaw + delta * MAX_YAW * 2.35);
-      return;
-    }
-    const normalized = ((event.clientX - bounds.left) / Math.max(bounds.width, 1)) * 2 - 1;
-    setYaw(normalized * MAX_YAW);
-  };
+    window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
 
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { active: true, startX: event.clientX, startYaw: targetYaw.current };
-    setIsInteracting(true);
-  };
-
-  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    drag.current.active = false;
-    setIsInteracting(false);
-  };
-
-  const handlePointerLeave = () => {
-    if (drag.current.active) return;
-    setYaw(0);
-    setIsInteracting(false);
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home'].includes(event.key)) return;
-    event.preventDefault();
-    if (event.key === 'Home') setYaw(0);
-    else setYaw(targetYaw.current + (event.key === 'ArrowRight' ? 9 : -9));
-  };
-
-  const view = useMemo(() => {
-    const position = (yaw + MAX_YAW) / (MAX_YAW * 2) * (VIEW_COUNT - 1);
-    const lower = Math.max(0, Math.min(VIEW_COUNT - 1, Math.floor(position)));
-    const upper = Math.max(0, Math.min(VIEW_COUNT - 1, lower + 1));
-    const rawBlend = upper === lower ? 0 : position - lower;
-    // Keep faces crisp: even a brief dissolve between two real camera views
-    // creates a visible double image around the eyes and jaw.
-    const blend = rawBlend < 0.5 ? 0 : 1;
-
-    return { lower, upper, blend };
-  }, [yaw]);
-
-  const roundedYaw = Math.round(yaw);
-  const copy = lang === 'en'
-    ? {
-        label: 'Interactive multi-view portrait of Jaroslav Venjarski. Move or drag horizontally to rotate; use arrow keys for precise rotation.',
-        drag: 'DRAG TO ROTATE',
-        move: 'MOVE',
-        mode: theme === 'dark' ? 'HOLOGRAPHIC CAPTURE' : 'NATURAL CAPTURE',
-      }
-    : {
-        label: 'Interaktívny viacpohľadový portrét Jaroslava Venjarského. Pohybom alebo ťahaním do strán ho otočíte; presne ho ovládate šípkami.',
-        drag: 'ŤAHOM OTOČIŤ',
-        move: 'POHYB',
-        mode: theme === 'dark' ? 'HOLOGRAFICKÝ ZÁZNAM' : 'PRIRODZENÝ ZÁZNAM',
-      };
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [x, y]);
 
   return (
-    <div
-      ref={root}
-      className={`profile-hologram profile-hologram--${theme}${isInteracting ? ' is-interacting' : ''}`}
-      role="group"
-      tabIndex={0}
-      aria-label={copy.label}
-      onPointerMove={updateFromPointer}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-      onPointerLeave={handlePointerLeave}
-      onKeyDown={handleKeyDown}
-    >
-      <div className="profile-hologram__stage">
-        <div className="profile-hologram__aura" aria-hidden="true" />
-        <div className="profile-hologram__grid" aria-hidden="true" />
-        <div
-          className="profile-hologram__portrait"
-          style={{
-            '--portrait-yaw': `${yaw * 0.065}deg`,
-            '--portrait-shift': `${yaw * -0.022}%`,
-          } as CSSProperties}
-          aria-hidden="true"
-        >
-          <div className="profile-hologram__depth-shadow" />
-          <img
-            src={VIEW_URLS[view.lower]}
-            alt=""
-            draggable={false}
-            decoding="async"
-            fetchPriority="high"
-            style={{ opacity: 1 - view.blend }}
+    <div className="perspective-1000 w-full max-w-[280px] mx-auto" ref={cardRef}>
+      <motion.div
+        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+        className="relative w-full aspect-[3/4] rounded-2xl cursor-pointer group"
+      >
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-purple-500/30 to-cyan-500/30 blur-2xl group-hover:blur-3xl transition-all duration-500" style={{ transform: "translateZ(-50px)" }}></div>
+        <div className="absolute inset-0 rounded-2xl border border-black/10 dark:border-white/20 overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-sm group-hover:border-purple-500/50 group-hover:shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all duration-500" style={{ transform: "translateZ(0px)" }}>
+          {/* Tvoja originálna fotka z ResearchGate */}
+          <img 
+            src="https://i1.rgstatic.net/ii/profile.image/11431281728263101-1763171443560_Q512/Jaroslav-Venjarski.jpg" 
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              e.currentTarget.src = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80";
+            }}
+            alt="Jaroslav Venjarski" 
+            className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 ease-out" 
           />
-          <img
-            src={VIEW_URLS[view.upper]}
-            alt=""
-            draggable={false}
-            decoding="async"
-            style={{ opacity: view.blend }}
-          />
-          <div className="profile-hologram__surface" />
+          <div className="absolute inset-0 bg-gradient-to-t from-white/80 dark:from-black/60 via-transparent to-transparent"></div>
         </div>
-
-        <div className="profile-hologram__scan" aria-hidden="true" />
-        <div className="profile-hologram__hud profile-hologram__hud--top">
-          <span>MULTI-VIEW SELF / 17 REAL VIEWS</span>
-          <span className="status-dot">LIVE DEPTH PORTRAIT</span>
-        </div>
-        <div className="profile-hologram__hud profile-hologram__hud--bottom">
-          <span>VIEW {roundedYaw > 0 ? '+' : ''}{roundedYaw}°</span>
-          <span>{copy.mode}</span>
-        </div>
-        <div className="profile-hologram__projector" aria-hidden="true"><span /><span /><span /></div>
-      </div>
-
-      <div className="profile-hologram__rotate-hint" aria-hidden="true">
-        <span>{copy.drag}</span>
-        <i><b style={{ left: `${50 + (yaw / MAX_YAW) * 44}%` }} /></i>
-        <span>← {copy.move} →</span>
-      </div>
+      </motion.div>
     </div>
   );
 }
