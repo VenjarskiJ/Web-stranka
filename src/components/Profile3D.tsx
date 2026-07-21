@@ -1,121 +1,74 @@
-import React, { useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { useTexture } from '@react-three/drei';
-import * as THREE from 'three';
+import React from 'react';
+import { motion } from 'framer-motion';
+import { ScanLine, Cpu, Network, Aperture } from 'lucide-react';
 
-// Tento komponent renderuje samotný 3D hologram
-function HologramPointCloud() {
-  // Načítame fotku zo zložky public/profile.jpg
-  const texture = useTexture('./profile.jpg');
-  const pointsRef = useRef<THREE.Points>(null);
-
-  const { geometry, material } = useMemo(() => {
-    // Vytvoríme mriežku s vysokým rozlíšením (vyše 20 000 bodov)
-    const geo = new THREE.PlaneGeometry(3, 4, 150, 200); 
-    
-    // Vlastný Shader (Kúzlo, ktoré robí z 2D fotky 3D)
-    const mat = new THREE.ShaderMaterial({
-      uniforms: {
-        uTexture: { value: texture },
-        uTime: { value: 0 }
-      },
-      vertexShader: `
-        uniform sampler2D uTexture;
-        uniform float uTime;
-        varying vec2 vUv;
-        varying float vElevation;
-
-        void main() {
-          vUv = uv;
-          vec4 texColor = texture2D(uTexture, uv);
-          
-          // Zistíme jas pixelu (luminance) - svetlé pixely budú vpredu, tmavé vzadu
-          float luminance = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
-          vElevation = luminance;
-
-          vec3 pos = position;
-          // Displace: vytlačíme body do 3D priestoru na základe jasu
-          pos.z += luminance * 0.8; 
-          
-          // Pridáme jemný kybernetický šum/vlnenie
-          pos.z += sin(pos.x * 10.0 + uTime * 2.0) * 0.05;
-
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-          
-          // Veľkosť bodiek
-          gl_PointSize = 2.5; 
-        }
-      `,
-      fragmentShader: `
-        uniform sampler2D uTexture;
-        uniform float uTime;
-        varying vec2 vUv;
-        varying float vElevation;
-
-        void main() {
-          vec4 color = texture2D(uTexture, vUv);
-          
-          // Ak je to úplná tma (pozadie), zahodíme to (urobíme priehľadné)
-          if(vElevation < 0.1) discard;
-
-          // Holografický farebný filter (pridáme tyrkysovú/zelenú žiaru)
-          vec3 cyberColor = mix(color.rgb, vec3(0.0, 1.0, 0.8), 0.3);
-          
-          // Urobíme z bodiek guličky (nie štvorce)
-          float dist = distance(gl_PointCoord, vec2(0.5));
-          if(dist > 0.5) discard;
-
-          // Scanline efekt bežiaci zhora nadol
-          float scanline = sin(vUv.y * 50.0 - uTime * 5.0) * 0.5 + 0.5;
-          cyberColor += vec3(0.0, 0.5, 0.5) * scanline * 0.3;
-
-          gl_FragColor = vec4(cyberColor, color.a * (0.6 + vElevation * 0.4));
-        }
-      `,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    return { geometry: geo, material: mat };
-  }, [texture]);
-
-  // Animácia rotácie pri pohybe myšou
-  useFrame((state) => {
-    if (pointsRef.current) {
-      pointsRef.current.material.uniforms.uTime.value = state.clock.elapsedTime;
-      // Natáčanie hologramu za myšou
-      pointsRef.current.rotation.y = THREE.MathUtils.lerp(pointsRef.current.rotation.y, (state.pointer.x * Math.PI) / 4, 0.1);
-      pointsRef.current.rotation.x = THREE.MathUtils.lerp(pointsRef.current.rotation.x, (-state.pointer.y * Math.PI) / 6, 0.1);
-    }
-  });
-
-  return <points ref={pointsRef} geometry={geometry} material={material} />;
-}
-
-
-// Hlavný wrapper
 export default function Profile3D({ theme, lang }: { theme?: string, lang?: string }) {
   return (
-    <div className="w-full max-w-[280px] mx-auto aspect-[3/4] relative cursor-crosshair group">
-      {/* Kybernetická žiara na pozadí */}
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-green-500/20 blur-3xl group-hover:from-cyan-500/40 group-hover:to-green-500/40 transition-all duration-700"></div>
+    <div className="w-full max-w-[280px] mx-auto aspect-[3/4] relative flex items-center justify-center group perspective-1000">
       
-      {/* 3D Scéna */}
-      <Canvas camera={{ position: [0, 0, 4.5], fov: 45 }} className="rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm">
-        <React.Suspense fallback={null}>
-          <HologramPointCloud />
-        </React.Suspense>
-      </Canvas>
+      {/* Žiara na pozadí, ktorá reaguje na hover */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/20 to-purple-500/20 blur-3xl group-hover:from-cyan-500/40 group-hover:to-purple-500/40 transition-all duration-700 animate-pulse"></div>
+      
+      {/* Levitujúci hlavný kontajner */}
+      <motion.div 
+        animate={{ y: [-8, 8, -8] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        className="relative w-full h-full border border-cyan-500/30 group-hover:border-cyan-400/60 bg-black/40 backdrop-blur-md rounded-2xl overflow-hidden flex flex-col items-center justify-center shadow-[0_0_40px_rgba(6,182,212,0.15)] group-hover:shadow-[0_0_60px_rgba(6,182,212,0.3)] transition-all duration-500"
+      >
+        
+        {/* Pozadie mriežky (ako v 3D softvéroch) */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.15)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.15)_1px,transparent_1px)] bg-[size:20px_20px] opacity-40"></div>
+        
+        {/* CSS Animácie pre rotáciu a skenovanie */}
+        <style>{`
+          @keyframes radarScan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(400%); }
+          }
+          .animate-radar { animation: radarScan 3s linear infinite; }
+          @keyframes spinSlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          .animate-spin-slow { animation: spinSlow 8s linear infinite; }
+          .animate-spin-reverse { animation: spinSlow 12s linear infinite reverse; }
+        `}</style>
 
-      {/* Zameriavače ako predtým */}
-      <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none">
-        <div className="flex flex-col">
-          <span className="text-cyan-400 font-mono text-[10px] tracking-[0.2em] font-bold animate-pulse">LIDAR_SCAN_ACTIVE</span>
-          <span className="text-cyan-200/70 font-mono text-[8px] tracking-widest mt-1">POINT_CLOUD_DATA</span>
+        {/* Laserový skener bežiaci zhora nadol */}
+        <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-transparent via-cyan-400/10 to-cyan-400/30 border-b border-cyan-400 animate-radar pointer-events-none z-10"></div>
+
+        {/* Centrálny abstraktný 3D/Vision vizuál */}
+        <div className="relative w-40 h-40 flex items-center justify-center">
+           {/* Vonkajší kruh */}
+           <div className="absolute inset-0 border-2 border-cyan-500/30 rounded-full animate-ping" style={{ animationDuration: '3s' }}></div>
+           
+           {/* Rotujúce kruhy prístrojov */}
+           <div className="absolute inset-2 border-t-2 border-r-2 border-purple-500/60 rounded-full animate-spin-slow"></div>
+           <div className="absolute inset-6 border-b-2 border-l-2 border-dashed border-cyan-400/80 rounded-full animate-spin-reverse"></div>
+           <div className="absolute inset-10 border border-cyan-300/40 rounded-full animate-spin-slow"></div>
+           
+           {/* Ikona jadra */}
+           <div className="absolute inset-0 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform duration-500">
+              <Aperture size={48} className="animate-pulse" />
+           </div>
         </div>
-        <div className="w-8 h-8 border-r-2 border-b-2 border-cyan-400/80"></div>
-      </div>
-      <div className="absolute top-4 left-4 w-8 h-8 border-l-2 border-t-2 border-cyan-400/80 pointer-events-none"></div>
+
+        {/* Futuristické texty a HUD (Head-Up Display) prvky */}
+        <div className="absolute bottom-6 w-full px-6 flex justify-between items-end pointer-events-none">
+           <div className="flex flex-col gap-1">
+             <span className="text-cyan-400 font-mono text-[10px] tracking-[0.2em] font-bold">VISION_CORE_ONLINE</span>
+             <span className="text-purple-400/80 font-mono text-[8px] tracking-widest">AWAITING_SPATIAL_DATA</span>
+           </div>
+           <Cpu size={18} className="text-cyan-400/70" />
+        </div>
+
+        {/* HUD zameriavače */}
+        <div className="absolute top-6 left-6 text-cyan-500/50"><Network size={20} /></div>
+        <div className="absolute top-6 right-6 w-4 h-4 border-t-2 border-r-2 border-cyan-500/50"></div>
+        <div className="absolute bottom-6 right-6 w-4 h-4 border-b-2 border-r-2 border-cyan-500/50"></div>
+        <div className="absolute bottom-6 left-6 w-4 h-4 border-b-2 border-l-2 border-cyan-500/50"></div>
+
+      </motion.div>
     </div>
   );
 }
