@@ -1,178 +1,121 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
+import React, { useRef, useMemo } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { useTexture } from '@react-three/drei';
+import * as THREE from 'three';
 
-// --- Komponent pre padajúci Matrix kód ---
-const MatrixRain = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+// Tento komponent renderuje samotný 3D hologram
+function HologramPointCloud() {
+  // Načítame fotku zo zložky public/profile.jpg
+  const texture = useTexture('./profile.jpg');
+  const pointsRef = useRef<THREE.Points>(null);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  const { geometry, material } = useMemo(() => {
+    // Vytvoríme mriežku s vysokým rozlíšením (vyše 20 000 bodov)
+    const geo = new THREE.PlaneGeometry(3, 4, 150, 200); 
+    
+    // Vlastný Shader (Kúzlo, ktoré robí z 2D fotky 3D)
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTexture: { value: texture },
+        uTime: { value: 0 }
+      },
+      vertexShader: `
+        uniform sampler2D uTexture;
+        uniform float uTime;
+        varying vec2 vUv;
+        varying float vElevation;
 
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+        void main() {
+          vUv = uv;
+          vec4 texColor = texture2D(uTexture, uv);
+          
+          // Zistíme jas pixelu (luminance) - svetlé pixely budú vpredu, tmavé vzadu
+          float luminance = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+          vElevation = luminance;
 
-    const letters = '01ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*';
-    const fontSize = 12;
-    const columns = canvas.width / fontSize;
-    const drops = Array(Math.floor(columns)).fill(1);
+          vec3 pos = position;
+          // Displace: vytlačíme body do 3D priestoru na základe jasu
+          pos.z += luminance * 0.8; 
+          
+          // Pridáme jemný kybernetický šum/vlnenie
+          pos.z += sin(pos.x * 10.0 + uTime * 2.0) * 0.05;
 
-    const draw = () => {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      ctx.fillStyle = '#0f0';
-      ctx.font = fontSize + 'px monospace';
-
-      for (let i = 0; i < drops.length; i++) {
-        const text = letters.charAt(Math.floor(Math.random() * letters.length));
-        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-
-        if (drops[i] * fontSize > canvas.height && Math.random() > 0.95) {
-          drops[i] = 0;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+          
+          // Veľkosť bodiek
+          gl_PointSize = 2.5; 
         }
-        drops[i]++;
-      }
-    };
+      `,
+      fragmentShader: `
+        uniform sampler2D uTexture;
+        uniform float uTime;
+        varying vec2 vUv;
+        varying float vElevation;
 
-    const interval = setInterval(draw, 50);
-    return () => clearInterval(interval);
-  }, []);
+        void main() {
+          vec4 color = texture2D(uTexture, vUv);
+          
+          // Ak je to úplná tma (pozadie), zahodíme to (urobíme priehľadné)
+          if(vElevation < 0.1) discard;
 
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full mix-blend-screen opacity-60" />;
-};
+          // Holografický farebný filter (pridáme tyrkysovú/zelenú žiaru)
+          vec3 cyberColor = mix(color.rgb, vec3(0.0, 1.0, 0.8), 0.3);
+          
+          // Urobíme z bodiek guličky (nie štvorce)
+          float dist = distance(gl_PointCoord, vec2(0.5));
+          if(dist > 0.5) discard;
 
+          // Scanline efekt bežiaci zhora nadol
+          float scanline = sin(vUv.y * 50.0 - uTime * 5.0) * 0.5 + 0.5;
+          cyberColor += vec3(0.0, 0.5, 0.5) * scanline * 0.3;
+
+          gl_FragColor = vec4(cyberColor, color.a * (0.6 + vElevation * 0.4));
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    return { geometry: geo, material: mat };
+  }, [texture]);
+
+  // Animácia rotácie pri pohybe myšou
+  useFrame((state) => {
+    if (pointsRef.current) {
+      pointsRef.current.material.uniforms.uTime.value = state.clock.elapsedTime;
+      // Natáčanie hologramu za myšou
+      pointsRef.current.rotation.y = THREE.MathUtils.lerp(pointsRef.current.rotation.y, (state.pointer.x * Math.PI) / 4, 0.1);
+      pointsRef.current.rotation.x = THREE.MathUtils.lerp(pointsRef.current.rotation.x, (-state.pointer.y * Math.PI) / 6, 0.1);
+    }
+  });
+
+  return <points ref={pointsRef} geometry={geometry} material={material} />;
+}
+
+
+// Hlavný wrapper
 export default function Profile3D({ theme, lang }: { theme?: string, lang?: string }) {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
-
-  const mouseXSpring = useSpring(x, { stiffness: 150, damping: 15 });
-  const mouseYSpring = useSpring(y, { stiffness: 150, damping: 15 });
-
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["15deg", "-15deg"]);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-15deg", "15deg"]);
-  
-  const glitchX1 = useTransform(mouseXSpring, [-0.5, 0.5], [-12, 12]);
-  const glitchX2 = useTransform(mouseXSpring, [-0.5, 0.5], [12, -12]);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!cardRef.current) return;
-      const rect = cardRef.current.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-
-      const xPct = (e.clientX - centerX) / window.innerWidth;
-      const yPct = (e.clientY - centerY) / window.innerHeight;
-
-      x.set(xPct * 2.5);
-      y.set(yPct * 2.5);
-    };
-
-    const handleMouseLeave = () => {
-      x.set(0);
-      y.set(0);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, [x, y]);
-
-  const photoUrl = "https://i1.rgstatic.net/ii/profile.image/11431281728263101-1763171443560_Q512/Jaroslav-Venjarski.jpg";
-
   return (
-    // TENTO WRAPPER ZABEZPEČUJE NEUSTÁLE LEVITOVANIE (FLOATING) CELEJ FOTKY
-    <motion.div 
-      animate={{ y: [-10, 10, -10] }} 
-      transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-      className="perspective-1000 w-full max-w-[280px] mx-auto relative" 
-      ref={cardRef}
-    >
-      <style>{`
-        @keyframes scanline {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(300%); }
-        }
-        .animate-scanline {
-          animation: scanline 2.5s linear infinite;
-        }
-        @keyframes hologramFlicker {
-          0%, 100% { opacity: 0.8; }
-          5% { opacity: 0.3; }
-          10% { opacity: 0.9; }
-          15% { opacity: 0.2; }
-          20% { opacity: 1; }
-          50% { opacity: 0.7; }
-        }
-        .group-hover\\:animate-hologram:hover {
-          animation: hologramFlicker 3s infinite;
-        }
-      `}</style>
+    <div className="w-full max-w-[280px] mx-auto aspect-[3/4] relative cursor-crosshair group">
+      {/* Kybernetická žiara na pozadí */}
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-green-500/20 blur-3xl group-hover:from-cyan-500/40 group-hover:to-green-500/40 transition-all duration-700"></div>
+      
+      {/* 3D Scéna */}
+      <Canvas camera={{ position: [0, 0, 4.5], fov: 45 }} className="rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm">
+        <React.Suspense fallback={null}>
+          <HologramPointCloud />
+        </React.Suspense>
+      </Canvas>
 
-      {/* Samotná karta, ktorá sa natáča za myšou */}
-      <motion.div
-        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        className="relative w-full aspect-[3/4] rounded-2xl cursor-pointer group group-hover:animate-hologram"
-      >
-        {/* Svietiaca Aura za kartou */}
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-green-500/30 to-cyan-500/30 blur-2xl group-hover:from-green-500/60 group-hover:to-cyan-500/60 transition-all duration-500" style={{ transform: "translateZ(-50px)" }}></div>
-        
-        {/* Hlavná Karta */}
-        <div className="absolute inset-0 rounded-2xl border border-white/10 group-hover:border-green-400/50 overflow-hidden bg-black/80 transition-all duration-500 group-hover:shadow-[0_0_50px_rgba(34,197,94,0.4)]" style={{ transform: "translateZ(0px)" }}>
-          
-          <img 
-            src={photoUrl} 
-            referrerPolicy="no-referrer"
-            alt="Jaroslav Venjarski" 
-            className="absolute inset-0 w-full h-full object-cover transition-all duration-500 ease-out grayscale-[20%] group-hover:grayscale group-hover:brightness-50 group-hover:contrast-150" 
-          />
-
-          <div className="absolute inset-0 bg-green-500/40 mix-blend-color-dodge opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-
-          <motion.img 
-            src={photoUrl} 
-            style={{ x: glitchX1, transformStyle: "preserve-3d" }}
-            className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-0 group-hover:opacity-70 transition-opacity duration-150 pointer-events-none filter hue-rotate-[180deg] saturate-200" 
-          />
-          
-          <motion.img 
-            src={photoUrl} 
-            style={{ x: glitchX2, transformStyle: "preserve-3d" }}
-            className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-0 group-hover:opacity-60 transition-opacity duration-150 pointer-events-none filter hue-rotate-[90deg] saturate-200" 
-          />
-
-          {/* Matrix kód sa zobrazí len pri prejdení myšou */}
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-            {isHovered && <MatrixRain />}
-          </div>
-
-          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-0 group-hover:opacity-100">
-            <div className="w-full h-8 bg-green-400/30 blur-sm animate-scanline"></div>
-            <div className="w-full h-[1px] bg-green-300 animate-scanline shadow-[0_0_10px_#4ade80]"></div>
-          </div>
-
-          <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-            <div className="flex flex-col">
-              <span className="text-green-400 font-mono text-[10px] tracking-[0.2em] font-bold animate-pulse">SYS.OVERRIDE //</span>
-              <span className="text-green-200/70 font-mono text-[8px] tracking-widest mt-1">RECONSTRUCTING_3D_VIEW</span>
-            </div>
-            <div className="w-8 h-8 border-r-2 border-b-2 border-green-400/80"></div>
-          </div>
-          <div className="absolute top-4 left-4 w-8 h-8 border-l-2 border-t-2 border-green-400/80 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <div className="absolute top-4 right-4 text-green-400/50 font-mono text-[8px] opacity-0 group-hover:opacity-100">REC ◉</div>
+      {/* Zameriavače ako predtým */}
+      <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none">
+        <div className="flex flex-col">
+          <span className="text-cyan-400 font-mono text-[10px] tracking-[0.2em] font-bold animate-pulse">LIDAR_SCAN_ACTIVE</span>
+          <span className="text-cyan-200/70 font-mono text-[8px] tracking-widest mt-1">POINT_CLOUD_DATA</span>
         </div>
-      </motion.div>
-    </motion.div>
+        <div className="w-8 h-8 border-r-2 border-b-2 border-cyan-400/80"></div>
+      </div>
+      <div className="absolute top-4 left-4 w-8 h-8 border-l-2 border-t-2 border-cyan-400/80 pointer-events-none"></div>
+    </div>
   );
 }
